@@ -1022,7 +1022,7 @@ async function googleBooks(q, max = 6) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
   try {
     const url = 'https://www.googleapis.com/books/v1/volumes?printType=books&country=US&fields=items(volumeInfo(title,authors,pageCount,categories,publishedDate,imageLinks))&maxResults=' + max + '&q=' + encodeURIComponent(q) + (GOOGLE_BOOKS_KEY ? '&key=' + encodeURIComponent(GOOGLE_BOOKS_KEY) : '');
-    const r = await fetch(url, { signal: ctl.signal });
+    const r = await fetch(url, { signal: ctl.signal, referrerPolicy: 'no-referrer-when-downgrade' }); // full page address, so a key restricted to this site's path is accepted
     if (!r.ok) return null;
     const j = await r.json();
     return (j.items || []).map(it => { const v = it.volumeInfo || {}; const img = v.imageLinks || {};
