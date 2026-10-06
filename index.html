@@ -64,14 +64,14 @@ button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .app { min-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; padding-inline: 16px; padding-block: 10px 18px; }
-.topbar { width: 100%; max-width: 980px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.topbar { width: 100%; max-width: 1240px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { font-family: var(--display); font-size: 19px; letter-spacing: .01em; display: flex; align-items: baseline; gap: 8px; }
 .brand small { font-family: var(--ui); font-size: 12px; color: var(--desk-muted); letter-spacing: .06em; text-transform: uppercase; }
 .save { font-size: 12px; color: var(--desk-muted); }
 
 /* ---------- editor toolbar ---------- */
 .toolbar {
-  width: 100%; max-width: 980px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; max-width: 1240px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px;
   background: var(--chrome); border: 1px solid var(--chrome-line); border-radius: 10px; padding: 6px 8px;
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
 }
@@ -150,6 +150,36 @@ button { cursor: pointer; }
 .holes { position: absolute; left: 7px; top: 3%; bottom: 3%; width: 10px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; z-index: 1; }
 .holes i { height: 12px; display: flex; align-items: center; }
 .holes i::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #2a2a2a; box-shadow: inset 0 1px 2px #000; opacity: .8; }
+
+/* two-page spread (wide screens) */
+.book.spread { width: min(100%, 1240px, max(600px, calc((100dvh - 230px) / 1.32 * 2))); aspect-ratio: 2 / 1.32; transition: transform .6s ease; }
+.book.spread::before { inset: 6px -6px -6px -6px; border-radius: 12px; transition: left .6s ease; }
+.book.spread.closed { transform: translateX(-25%); }
+.book.spread.closed::before { left: calc(50% + 6px); }
+.book.spread .leaf.side-left { right: 50%; border-radius: 10px 3px 3px 10px; box-shadow: 0 1px 2px rgba(0,0,0,.18), inset -14px 0 18px -14px rgba(0,0,0,.25); }
+.book.spread .leaf.side-right { left: 50%; }
+.book.spread .rings { left: calc(50% - 17px); }
+.side-left .holes { left: auto; right: 7px; }
+.side-left .page-body { padding-left: 26px; padding-right: 40px; }
+.entry.side-left .page-body { padding-left: 22px; padding-right: 40px; }
+.flipper { position: absolute; top: 0; bottom: 0; width: 50%; transform-style: preserve-3d; z-index: 10; }
+.flipper.fwd { left: 50%; transform-origin: left center; animation: turnFwd .8s cubic-bezier(.45,.05,.3,1) forwards; }
+.flipper.back { left: 0; transform-origin: right center; animation: turnBack .8s cubic-bezier(.45,.05,.3,1) forwards; }
+.flipper .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flipper .face.backside { transform: rotateY(180deg); }
+.flipper .face > .leaf { left: 0 !important; right: 0 !important; }
+@keyframes turnFwd { to { transform: rotateY(-180deg); } }
+@keyframes turnBack { to { transform: rotateY(180deg); } }
+@media (prefers-reduced-motion: reduce) { .book.spread, .book.spread::before { transition: none; } }
+
+/* bindings */
+.bind-ring .rings, .bind-ring .holes { top: 12%; bottom: 12%; }
+.bind-ring .ring { height: 24px; border-radius: 13px; background: transparent; border: 5px solid; border-color: #e4e8ea #8d969b #6f777c #c3c9cc; box-shadow: 0 2px 4px rgba(0,0,0,.35), inset 0 1px 2px rgba(0,0,0,.3); }
+.bind-ring .holes i { height: 24px; }
+.bind-ring .holes i::before { width: 13px; height: 13px; }
+.bind-stitch .rings, .bind-glue .rings { top: 1%; bottom: 1%; align-items: center; }
+.rings .thread { width: 0; height: 100%; border-left: 3px dashed #7b4a2e; filter: drop-shadow(0 1px 0 rgba(0,0,0,.35)); }
+.rings .glue { width: 18px; height: 100%; background: linear-gradient(90deg, transparent, rgba(0,0,0,.3) 50%, transparent); }
 
 /* dog-ear corners */
 .corner { position: absolute; bottom: 0; width: 46px; height: 46px; border: 0; padding: 0; z-index: 15; background: none; transition: width .2s ease, height .2s ease; filter: drop-shadow(-2px -2px 3px rgba(0,0,0,.18)); }
@@ -284,13 +314,23 @@ table.log td.t small { color: var(--ink-soft); }
 .sticker .s-tools button.del { background: var(--danger); }
 .sticker .s-resize { position: absolute; right: -9px; bottom: -9px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; display: none; cursor: nwse-resize; z-index: 4; }
 .sticker.sel .s-resize { display: block; }
+.sticker.textbox { cursor: default; touch-action: auto; user-select: text; }
+.sticker.textbox:hover:not(.sel) { outline: 1px dashed rgba(31,42,51,.3); outline-offset: 2px; }
+.tb-body { min-height: 34px; padding: 4px 8px; outline: none; font-family: var(--text); font-size: 17px; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; cursor: text; }
+.tb-body:empty::before { content: attr(data-placeholder); color: #9aa6b4; pointer-events: none; }
+.tb-body ul, .tb-body ol { margin: 0; padding-left: 22px; }
+.tb-handle { position: absolute; top: -16px; left: 0; width: 48px; height: 14px; border-radius: 7px 7px 0 0; background: var(--accent); cursor: grab; display: none; touch-action: none; }
+.tb-handle::after { content: ""; position: absolute; left: 14px; right: 14px; top: 5px; height: 4px; border-top: 1px solid rgba(255,255,255,.8); border-bottom: 1px solid rgba(255,255,255,.8); }
+.textbox.sel .tb-handle, .textbox:hover .tb-handle { display: block; }
+.tlabel { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--desk-muted); font-weight: 600; padding: 0 4px; }
+.tb:disabled { opacity: .38; cursor: default; background: transparent; }
 .drop-hint { position: absolute; inset: 0; z-index: 8; border: 3px dashed var(--accent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 12%, transparent); display: grid; place-items: center; font-family: var(--hand); font-size: 26px; color: var(--ink); pointer-events: none; }
 
 /* pager */
 .pager { width: 100%; max-width: 620px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
 .pager .pbtn { height: 36px; border-radius: 8px; border: 1px solid var(--chrome-line); background: var(--chrome); padding: 0 12px; font-weight: 600; font-size: 14px; color: var(--desk-ink); }
 .pager .pbtn:disabled { opacity: .45; cursor: default; }
-.pager select { height: 36px; border-radius: 8px; border: 1px solid var(--chrome-line); background: var(--chrome); padding: 0 8px; max-width: 220px; color: var(--desk-ink); }
+.pager select { height: 36px; border-radius: 8px; border: 1px solid var(--chrome-line); background: var(--chrome); padding: 0 8px; max-width: 280px; color: var(--desk-ink); }
 .pager .pbtn.danger.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
 
 /* modal */
@@ -385,8 +425,18 @@ table.log td.t small { color: var(--ink-soft); }
       <button class="tb" data-cmd="removeFormat" type="button" title="Clear formatting"><svg viewBox="0 0 24 24"><path d="M6 5h12M12 5l-3 14M4 20l16-16"/></svg></button>
     </div>
     <div class="tgroup">
+      <button class="tb" id="textBoxBtn" type="button" title="Add a text box you can move anywhere on the page"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5" stroke-dasharray="3 2"/><path d="M8 9h8M12 9v7"/></svg>Text box</button>
+    </div>
+    <div class="tgroup">
       <button class="tb" id="imgBtn" type="button" title="Find a book cover on Google Books"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></svg>Book covers</button>
       <button class="tb" id="gImgBtn" type="button" title="Find pictures for this page"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>Pictures</button>
+    </div>
+    <div class="tgroup" role="group" aria-label="Layer">
+      <span class="tlabel">Layer</span>
+      <button class="tb" data-layer="front" type="button" title="Bring to front" aria-label="Bring to front"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="12" height="12" rx="1"/><rect x="9" y="9" width="12" height="12" rx="1" fill="currentColor"/></svg></button>
+      <button class="tb" data-layer="forward" type="button" title="Bring forward" aria-label="Bring forward"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="11" height="11" rx="1"/><path d="M18 14V4M14 8l4-4 4 4"/></svg></button>
+      <button class="tb" data-layer="backward" type="button" title="Send backward" aria-label="Send backward"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="11" height="11" rx="1"/><path d="M18 10v10M14 16l4 4 4-4"/></svg></button>
+      <button class="tb" data-layer="back" type="button" title="Send to back" aria-label="Send to back"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="12" height="12" rx="1" fill="currentColor"/><rect x="9" y="9" width="12" height="12" rx="1" style="fill: var(--chrome)"/></svg></button>
     </div>
   </div>
 
@@ -612,7 +662,7 @@ const SAMPLE_BOOKS = [
 
 const DEFAULT_STATE = () => ({
   v: 1,
-  cover: { color: '#2f4858', material: 'leather', title: 'My Reading Journal', subtitle: String(THIS_YEAR), titleFont: 'Bookman Old Style', titleColor: '#e8d8a8', label: 'foil', image: null, strap: true },
+  cover: { binding: 'spiral', color: '#2f4858', material: 'leather', title: 'My Reading Journal', subtitle: String(THIS_YEAR), titleFont: 'Bookman Old Style', titleColor: '#e8d8a8', label: 'foil', image: null, strap: true },
   owner: { name: '', since: '', genres: '', goal: 24, contact: '', quote: '' },
   books: SAMPLE_BOOKS,
   logYear: THIS_YEAR,
@@ -641,14 +691,25 @@ let turning = false;
 
 const book = $('#book');
 const rings = $('#rings');
-for (let i = 0; i < 16; i++) rings.append(h('div', { class: 'ring' }));
+// Binding is a notebook-wide setting: spiral, ring, stitch or glue.
+const BINDINGS = [['spiral', 'Spiral'], ['ring', 'Rings'], ['stitch', 'Stitched'], ['glue', 'Glued']];
+const HOLES = { spiral: 16, ring: 3, stitch: 0, glue: 0 };
+function binding() { return HOLES[S.cover.binding] != null ? S.cover.binding : 'spiral'; }
+function drawBinding() {
+  const b = binding();
+  BINDINGS.forEach(([v]) => book.classList.toggle('bind-' + v, v === b));
+  rings.innerHTML = '';
+  if (b === 'spiral' || b === 'ring') for (let i = 0; i < HOLES[b]; i++) rings.append(h('div', { class: 'ring' }));
+  else rings.append(h('div', { class: b === 'stitch' ? 'thread' : 'glue' }));
+}
 
 function corner(dir, label) {
-  return h('button', { class: 'corner ' + dir, type: 'button', 'aria-label': label, onclick: e => { e.stopPropagation(); dir === 'next' ? go(cur + 1) : go(cur - 1); } }, h('span', { class: 'tip' }, label));
+  return h('button', { class: 'corner ' + dir, type: 'button', 'aria-label': label, onclick: e => { e.stopPropagation(); dir === 'next' ? next() : prev(); } }, h('span', { class: 'tip' }, label));
 }
-function holes() { const d = h('div', { class: 'holes', 'aria-hidden': 'true' }); for (let i = 0; i < 16; i++) d.append(h('i')); return d; }
+function holes() { const d = h('div', { class: 'holes', 'aria-hidden': 'true' }); for (let i = 0; i < HOLES[binding()]; i++) d.append(h('i')); return d; }
 
-function renderPage(i) {
+// side: 'S' single page, 'L' left page of a spread, 'R' right page of a spread
+function renderPage(i, side = 'S') {
   let leaf;
   if (i === 0) leaf = renderCover();
   else if (i === 1) leaf = renderOwner();
@@ -656,10 +717,12 @@ function renderPage(i) {
   else if (i === 3) leaf = renderLog();
   else leaf = renderEntry(i - FIXED.length);
   leaf.dataset.page = i;
+  if (side === 'L') leaf.classList.add('side-left');
+  if (side === 'R') leaf.classList.add('side-right');
   leaf.prepend(holes());
-  if (i > 0) leaf.append(corner('prev', i === 1 ? 'Close the cover' : 'Back'));
+  if (i > 0 && side !== 'R') leaf.append(corner('prev', i === 1 ? 'Close the cover' : 'Back'));
   const last = i === pageCount() - 1;
-  leaf.append(corner('next', i === 0 ? 'Open' : last ? 'Add a page' : 'Next page'));
+  if (side !== 'L') leaf.append(corner('next', i === 0 ? 'Open' : last ? 'Add pages' : 'Next page'));
   if (i > 0) leaf.append(h('div', { class: 'folio' }, i < FIXED.length ? '' : String(i - FIXED.length + 1)));
   return leaf;
 }
@@ -785,23 +848,24 @@ let activeEditor = null;
 function renderEntry(k) {
   const e = S.entries[k];
   const leaf = h('div', { class: 'leaf paper entry' });
-  const bookSel = h('select', { id: 'entryBook' }, h('option', { value: '' }, '—'), sortedBooks().map(b => h('option', { value: b.id }, b.title)));
+  const bookSel = h('select', { id: 'entryBook' + k, 'aria-label': 'Book' }, h('option', { value: '' }, '—'), sortedBooks().map(b => h('option', { value: b.id }, b.title)));
   bookSel.value = e.bookId || '';
   bookSel.addEventListener('change', () => { e.bookId = bookSel.value; save(); });
-  const dateIn = h('input', { type: 'date', id: 'entryDate', value: e.date || '' });
+  const dateIn = h('input', { type: 'date', id: 'entryDate' + k, 'aria-label': 'Date', value: e.date || '' });
   dateIn.addEventListener('change', () => { e.date = dateIn.value; save(); });
-  const editor = h('div', { class: 'editor', contenteditable: 'true', spellcheck: 'true', 'aria-label': 'Journal page', 'data-placeholder': k === 0 ? 'Start writing… What did you read? How did it make you feel? Use the toolbar above for fonts, colors and pictures.' : 'This page is blank. Write, doodle with fonts, or paste in pictures.' });
+  const editor = h('div', { class: 'editor', contenteditable: 'true', spellcheck: 'true', 'aria-label': 'Journal page' });
   editor.innerHTML = e.html || '';
   editor.addEventListener('input', () => { normalizeMarkers(editor); e.html = editor.innerHTML === '<br>' ? '' : editor.innerHTML; save(); });
   editor.addEventListener('focus', () => { activeEditor = editor; });
   editor.addEventListener('paste', onEditorPaste);
   const canvas = h('div', { class: 'canvas' }, editor);
-  e.stickers.forEach(s => canvas.append(stickerEl(s, e)));
+  e.stickers.forEach((s, i) => { s.z = 3 + i; canvas.append(stickerEl(s, e)); });
   canvas.addEventListener('pointerdown', ev => { if (!ev.target.closest('.sticker')) selectSticker(null); });
   canvas.addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('Files') || [...ev.dataTransfer.types].includes('text/uri-list')) { ev.preventDefault(); showDrop(canvas, true); } });
   canvas.addEventListener('dragleave', ev => { if (!canvas.contains(ev.relatedTarget)) showDrop(canvas, false); });
   canvas.addEventListener('drop', ev => {
     showDrop(canvas, false);
+    activePage = Number(leaf.dataset.page);
     const files = [...ev.dataTransfer.files].filter(f => f.type.startsWith('image/'));
     if (files.length) {
       ev.preventDefault();
@@ -827,19 +891,35 @@ function showDrop(canvas, on) {
 
 /* stickers (pictures on a page) */
 const FRAMES = ['tape', 'polaroid', 'plain'];
-function currentEntry() { return cur >= FIXED.length ? S.entries[cur - FIXED.length] : null; }
-function currentCanvas() { return $('.leaf.current .canvas'); }
+let activePage = 0;
+function visiblePages(c = cur) { return !spread ? [c] : c === 0 ? [0] : [c, c + 1]; }
+function currentEntry() { return activePage >= FIXED.length && visiblePages().includes(activePage) ? S.entries[activePage - FIXED.length] : null; }
+function currentCanvas() { return $(`.leaf.current[data-page="${activePage}"] .canvas`, book); }
+function removeItem(el, s, entry) { entry.stickers = entry.stickers.filter(t => t !== s); el.remove(); restack(entry); save(); }
 function stickerEl(s, entry) {
-  const el = h('div', { class: `sticker f-${s.frame || 'tape'}`, tabindex: 0, 'aria-label': 'Picture. Drag to move.', style: { left: s.x + '%', top: s.y + '%', width: s.w + '%', transform: `rotate(${s.rot || 0}deg)`, zIndex: s.z || 3 } },
-    h('img', { src: s.src, alt: '' }),
-    h('div', { class: 's-tools' },
-      h('button', { type: 'button', onclick: ev => { ev.stopPropagation(); s.frame = FRAMES[(FRAMES.indexOf(s.frame || 'tape') + 1) % FRAMES.length]; el.className = `sticker sel f-${s.frame}`; save(); } }, 'Frame'),
-      h('button', { type: 'button', onclick: ev => { ev.stopPropagation(); s.rot = ((s.rot || 0) + 4 > 12) ? -12 : (s.rot || 0) + 4; el.style.transform = `rotate(${s.rot}deg)`; save(); } }, 'Tilt'),
-      h('button', { type: 'button', onclick: ev => { ev.stopPropagation(); s.z = Math.max(3, ...entry.stickers.map(t => t.z || 3)) + 1; el.style.zIndex = s.z; save(); } }, 'Front'),
-      h('button', { type: 'button', class: 'del', onclick: ev => { ev.stopPropagation(); entry.stickers = entry.stickers.filter(t => t !== s); el.remove(); save(); } }, 'Delete')),
+  const isText = s.type === 'text';
+  const tools = isText
+    ? [h('button', { type: 'button', class: 'del', onclick: ev => { ev.stopPropagation(); removeItem(el, s, entry); } }, 'Delete')]
+    : [h('button', { type: 'button', onclick: ev => { ev.stopPropagation(); s.frame = FRAMES[(FRAMES.indexOf(s.frame || 'tape') + 1) % FRAMES.length]; el.className = `sticker sel f-${s.frame}`; save(); } }, 'Frame'),
+       h('button', { type: 'button', onclick: ev => { ev.stopPropagation(); s.rot = ((s.rot || 0) + 4 > 12) ? -12 : (s.rot || 0) + 4; el.style.transform = `rotate(${s.rot}deg)`; save(); } }, 'Tilt'),
+       h('button', { type: 'button', class: 'del', onclick: ev => { ev.stopPropagation(); removeItem(el, s, entry); } }, 'Delete')];
+  let body = null;
+  if (isText) {
+    body = h('div', { class: 'tb-body', contenteditable: 'true', spellcheck: 'true', 'aria-label': 'Text box', 'data-placeholder': 'Type here' });
+    body.innerHTML = s.html || '';
+    body.addEventListener('input', () => { normalizeMarkers(body); s.html = body.innerHTML === '<br>' ? '' : body.innerHTML; save(); });
+    body.addEventListener('paste', onEditorPaste);
+    body.addEventListener('focus', () => selectSticker(el));
+  }
+  const el = h('div', { class: isText ? 'sticker textbox' : `sticker f-${s.frame || 'tape'}`, tabindex: isText ? null : 0, 'data-id': s.id, 'aria-label': isText ? null : 'Picture. Drag to move.', style: { left: s.x + '%', top: s.y + '%', width: s.w + '%', transform: `rotate(${s.rot || 0}deg)`, zIndex: s.z || 3 } },
+    isText ? h('div', { class: 'tb-handle', title: 'Drag to move' }) : h('img', { src: s.src, alt: '' }),
+    body,
+    h('div', { class: 's-tools' }, tools),
     h('div', { class: 's-resize', 'aria-hidden': 'true' }));
+  el._s = s; el._entry = entry;
   el.addEventListener('pointerdown', ev => {
     if (ev.target.closest('.s-tools')) return;
+    if (isText && !ev.target.closest('.tb-handle, .s-resize')) { selectSticker(el); return; }
     ev.preventDefault();
     selectSticker(el);
     const canvas = el.parentElement; const r = canvas.getBoundingClientRect();
@@ -848,18 +928,42 @@ function stickerEl(s, entry) {
     el.setPointerCapture(ev.pointerId);
     const move = m => {
       const dx = (m.clientX - sx) / r.width * 100, dy = (m.clientY - sy) / r.height * 100;
-      if (resizing) { s.w = Math.max(10, Math.min(100, ow + dx)); el.style.width = s.w + '%'; }
+      if (resizing) { s.w = Math.max(isText ? 15 : 10, Math.min(100, ow + dx)); el.style.width = s.w + '%'; }
       else { s.x = Math.max(-20, Math.min(95, ox + dx)); s.y = Math.max(-10, Math.min(95, oy + dy)); el.style.left = s.x + '%'; el.style.top = s.y + '%'; }
     };
     const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); save(); };
     el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   });
   el.addEventListener('keydown', ev => {
-    if (ev.key === 'Delete' || ev.key === 'Backspace') { entry.stickers = entry.stickers.filter(t => t !== s); el.remove(); save(); }
+    if (ev.target !== el) return;
+    if (ev.key === 'Delete' || ev.key === 'Backspace') removeItem(el, s, entry);
   });
   return el;
 }
-function selectSticker(el) { $$('.sticker.sel').forEach(s => s !== el && s.classList.remove('sel')); if (el) el.classList.add('sel'); }
+function selectSticker(el) { $$('.sticker.sel').forEach(s => s !== el && s.classList.remove('sel')); if (el) el.classList.add('sel'); updateLayerButtons(); }
+// Layer order is the order of items in the entry: later items sit on top.
+function restack(entry) {
+  entry.stickers.forEach((s, i) => { s.z = 3 + i; const el = $(`.sticker[data-id="${s.id}"]`, book); if (el) el.style.zIndex = s.z; });
+}
+function layer(op) {
+  const el = $('.sticker.sel', book);
+  if (!el) { toast('Click a picture or text box first, then choose where to layer it.'); return; }
+  const s = el._s, entry = el._entry, arr = entry.stickers, i = arr.indexOf(s);
+  arr.splice(i, 1);
+  const j = op === 'front' ? arr.length : op === 'back' ? 0 : op === 'forward' ? Math.min(arr.length, i + 1) : Math.max(0, i - 1);
+  arr.splice(j, 0, s);
+  restack(entry); save();
+}
+function updateLayerButtons() { const on = !!$('.sticker.sel', book); $$('[data-layer]').forEach(b => b.disabled = !on); }
+function addTextBox() {
+  const entry = currentEntry(); const canvas = currentCanvas();
+  if (!entry || !canvas) { toast('Turn to a journal page to add a text box.'); return; }
+  const n = entry.stickers.filter(t => t.type === 'text').length;
+  const s = { id: uid(), type: 'text', html: '', x: 8 + (n % 4) * 4, y: 6 + (n % 6) * 8, w: 62, rot: 0, z: 3 + entry.stickers.length };
+  entry.stickers.push(s);
+  const el = stickerEl(s, entry); canvas.append(el); selectSticker(el); save(true);
+  setTimeout(() => el.querySelector('.tb-body').focus(), 0);
+}
 
 function shrinkImage(file) {
   return new Promise((res, rej) => {
@@ -912,74 +1016,119 @@ function onEditorPaste(ev) {
   if (text) document.execCommand('insertText', false, text);
 }
 document.addEventListener('paste', ev => {
-  if (ev.target.closest && (ev.target.closest('.editor') || ev.target.closest('input, textarea') || ev.target.id === 'pasteZone')) return;
+  if (ev.target.closest && (ev.target.closest('.editor, .tb-body') || ev.target.closest('input, textarea') || ev.target.id === 'pasteZone')) return;
   const img = imageFromClipboard(ev.clipboardData);
   if (img && currentEntry()) { ev.preventDefault(); addImage(img); }
 });
 
 /* ---------------- navigation ---------------- */
-function mount(i) {
-  $$('.leaf', book).forEach(l => l.remove());
-  const leaf = renderPage(i); leaf.classList.add('current');
-  book.append(leaf);
+// Wide screens show two pages at once: the cover alone, then (1,2), (3,4), (5,6)…
+const wideMQ = matchMedia('(min-width: 1000px)');
+let spread = wideMQ.matches;
+const spreadStart = i => i <= 0 ? 0 : (i % 2 ? i : i - 1);
+const blankEntry = () => ({ id: uid(), date: todayISO(), bookId: '', html: '', stickers: [] });
+function ensureFullSpreads() { if (spread && (pageCount() - 1) % 2) { S.entries.push(blankEntry()); save(); } }
+function mount(c) {
+  $$('.leaf, .flipper', book).forEach(l => l.remove());
+  drawBinding();
+  book.classList.toggle('spread', spread);
+  if (spread) {
+    ensureFullSpreads();
+    cur = spreadStart(Math.min(c, pageCount() - 1));
+    book.classList.toggle('closed', cur === 0);
+    if (cur === 0) book.append(renderPage(0, 'R'));
+    else book.append(renderPage(cur, 'L'), renderPage(cur + 1, 'R'));
+  } else {
+    book.classList.remove('closed');
+    cur = Math.min(c, pageCount() - 1);
+    book.append(renderPage(cur));
+  }
+  $$('.leaf', book).forEach(l => l.classList.add('current'));
+  const vis = visiblePages();
+  if (!vis.includes(activePage) || activePage < FIXED.length) activePage = vis.find(i => i >= FIXED.length) ?? cur;
   afterTurn();
 }
 function refresh() { if (!turning) mount(cur); }
+function next() { go(spread ? (cur === 0 ? 1 : cur + 2) : cur + 1); }
+function prev() { go(spread ? (cur <= 1 ? 0 : cur - 2) : cur - 1); }
 function go(target) {
-  if (turning) return;
-  if (target < 0) return;
-  if (target >= pageCount()) { addEntry(false); target = pageCount() - 1; }
+  if (turning || target < 0) return;
+  if (spread) target = spreadStart(target);
+  if (target >= pageCount()) { S.entries.push(blankEntry()); ensureFullSpreads(); save(); target = spread ? spreadStart(pageCount() - 1) : pageCount() - 1; }
   if (target === cur) return;
   if (cur === 0) S.opened = true;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const old = $('.leaf.current', book);
-  const nxt = renderPage(target);
   closePops(); selectSticker(null);
-  if (reduce || !old) { cur = target; S.page = cur; save(); mount(cur); return; }
+  const done = () => { cur = target; S.page = cur; turning = false; save(); mount(cur); };
+  if (reduce) { done(); return; }
   turning = true;
   const forward = target > cur;
+  if (spread) {
+    // One leaf turns over the spine: its front is the page we leave, its back the page we arrive at.
+    const oldL = $('.leaf.side-left', book), oldR = $('.leaf.side-right', book);
+    const flipper = h('div', { class: 'flipper ' + (forward ? 'fwd' : 'back') });
+    const face = (leaf, back) => h('div', { class: 'face' + (back ? ' backside' : '') }, leaf);
+    book.classList.toggle('closed', target === 0);
+    if (forward) {
+      book.append(renderPage(target + 1, 'R'));
+      oldR.remove();
+      flipper.append(face(oldR), face(renderPage(target, 'L'), true));
+    } else {
+      if (target > 0) book.append(renderPage(target, 'L'));
+      oldL.remove();
+      flipper.append(face(oldL), face(renderPage(target === 0 ? 0 : target + 1, 'R'), true));
+    }
+    $$('.leaf:not(.current)', book).forEach(l => book.insertBefore(l, book.querySelector('.leaf.current')));
+    book.append(flipper);
+    flipper.addEventListener('animationend', done, { once: true });
+    return;
+  }
+  const old = $('.leaf.current', book);
+  const nxt = renderPage(target);
   if (forward) {
     book.insertBefore(nxt, old);
     old.classList.add('flip-out');
-    old.addEventListener('animationend', () => { old.remove(); finish(); }, { once: true });
+    old.addEventListener('animationend', done, { once: true });
   } else {
     book.append(nxt);
     nxt.classList.add('flip-in');
-    nxt.addEventListener('animationend', () => { old.remove(); nxt.classList.remove('flip-in'); finish(); }, { once: true });
+    nxt.addEventListener('animationend', done, { once: true });
   }
-  function finish() { nxt.classList.add('current'); cur = target; S.page = cur; turning = false; save(); afterTurn(); }
 }
+wideMQ.addEventListener('change', () => { spread = wideMQ.matches; if (!turning) mount(cur); });
+book.addEventListener('pointerdown', e => { const l = e.target.closest('.leaf.current'); if (l) activePage = Number(l.dataset.page); }, true);
 function afterTurn() {
-  const onEntry = cur >= FIXED.length;
+  const vis = visiblePages();
+  const onEntry = vis.some(i => i >= FIXED.length);
   $('#toolbar').hidden = !onEntry;
   $('#prevBtn').disabled = cur === 0;
-  $('#nextBtn').textContent = cur === pageCount() - 1 ? '+ Page ›' : cur === 0 ? 'Open ›' : 'Next ›';
+  $('#nextBtn').textContent = vis.includes(pageCount() - 1) ? '+ Pages ›' : cur === 0 ? 'Open ›' : 'Next ›';
   $('#addPageBtn').hidden = !onEntry;
   $('#delPageBtn').hidden = !onEntry || S.entries.length < 2;
   disarm($('#delPageBtn'), 'Remove page');
   const j = $('#jump'); j.innerHTML = '';
-  for (let i = 0; i < pageCount(); i++) j.append(h('option', { value: i }, pageName(i)));
+  for (let i = 0; i < pageCount(); i++) if (!spread || i === spreadStart(i)) j.append(h('option', { value: i }, spread && i > 0 ? `${pageName(i)} & ${pageName(i + 1)}`.replace(/Journal page (\d+) & Journal page /, 'Journal pages $1–') : pageName(i)));
   j.value = cur;
-  const corner = $('.leaf.current .corner.next', book);
-  if (cur === 0 && corner && !S.opened) corner.classList.add('pulse');
+  updateLayerButtons();
+  const c = $('.leaf.current .corner.next', book);
+  if (cur === 0 && c && !S.opened) c.classList.add('pulse');
 }
 function addEntry(after) {
-  const e = { id: uid(), date: todayISO(), bookId: '', html: '', stickers: [] };
-  const at = after ? cur - FIXED.length + 1 : S.entries.length;
-  S.entries.splice(at, 0, e); save();
+  const at = after && activePage >= FIXED.length ? activePage - FIXED.length + 1 : S.entries.length;
+  S.entries.splice(at, 0, blankEntry()); save();
   return at + FIXED.length;
 }
-$('#prevBtn').addEventListener('click', () => go(cur - 1));
-$('#nextBtn').addEventListener('click', () => go(cur + 1));
+$('#prevBtn').addEventListener('click', prev);
+$('#nextBtn').addEventListener('click', next);
 $('#jump').addEventListener('change', e => go(Number(e.target.value)));
-$('#addPageBtn').addEventListener('click', () => { const t = addEntry(true); afterTurn(); go(t); });
+$('#addPageBtn').addEventListener('click', () => { const t = addEntry(true); ensureFullSpreads(); activePage = t; if (visiblePages().includes(t)) mount(cur); else go(t); });
 function disarm(b, label) { b.classList.remove('armed'); b.textContent = label; clearTimeout(b._t); }
 $('#delPageBtn').addEventListener('click', e => {
   const b = e.currentTarget;
-  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Tap again to remove'; b._t = setTimeout(() => disarm(b, 'Remove page'), 3500); return; }
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = spread ? `Tap again to remove page ${activePage - FIXED.length + 1}` : 'Tap again to remove'; b._t = setTimeout(() => disarm(b, 'Remove page'), 3500); return; }
   disarm(b, 'Remove page');
-  S.entries.splice(cur - FIXED.length, 1);
-  if (cur >= pageCount()) cur = pageCount() - 1;
+  if (activePage < FIXED.length) return;
+  S.entries.splice(activePage - FIXED.length, 1);
   S.page = cur; save(); mount(cur); toast('Page removed');
 });
 document.addEventListener('keydown', e => {
@@ -987,20 +1136,20 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closePops(); selectSticker(null); return; }
   const t = e.target;
   if (t.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(t.tagName)) return;
-  if (e.key === 'ArrowRight') go(cur + 1);
-  if (e.key === 'ArrowLeft') go(cur - 1);
+  if (e.key === 'ArrowRight') next();
+  if (e.key === 'ArrowLeft') prev();
 });
-book.addEventListener('click', e => { if (cur === 0 && !e.target.closest('button')) { S.opened = true; go(1); } });
+book.addEventListener('click', e => { if (cur === 0 && !e.target.closest('button')) { S.opened = true; next(); } });
 // swipe on touch screens
 let sw = null;
 book.addEventListener('touchstart', e => {
-  if (e.target.closest('.editor, input, textarea, select, .sticker, .table-wrap, .shelf')) { sw = null; return; }
+  if (e.target.closest('.editor, .tb-body, input, textarea, select, .sticker, .table-wrap, .shelf')) { sw = null; return; }
   sw = { x: e.touches[0].clientX, y: e.touches[0].clientY };
 }, { passive: true });
 book.addEventListener('touchend', e => {
   if (!sw) return;
   const dx = e.changedTouches[0].clientX - sw.x, dy = e.changedTouches[0].clientY - sw.y; sw = null;
-  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { if (dx < 0 && cur < pageCount() - 1) go(cur + 1); else if (dx > 0) go(cur - 1); }
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { if (dx < 0 && !visiblePages().includes(pageCount() - 1)) next(); else if (dx > 0) prev(); }
 });
 
 /* ---------------- modal: book form ---------------- */
@@ -1178,6 +1327,7 @@ function openCoverEditor(e) {
       h('div', { class: 'f full' }, 'Cover color', h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' } }, chips, custom)),
       h('div', { class: 'f full' }, 'Material', seg(MATERIALS, 'material')),
       h('div', { class: 'f full' }, 'Title style', seg(LABELS, 'label')),
+      h('div', { class: 'f full' }, 'Binding', seg(BINDINGS, 'binding')),
       h('div', { class: 'f full' }, 'Cover picture', imgRow),
       h('label', { class: 'f full', style: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' } }, strap, 'Elastic band')),
     h('div', { class: 'sheet-actions' }, h('button', { type: 'button', class: 'btn', onclick: closeModal }, 'Done')));
@@ -1190,12 +1340,19 @@ document.addEventListener('selectionchange', () => {
   const sel = getSelection();
   const node = sel.anchorNode;
   const el = node && (node.nodeType === 1 ? node : node.parentElement);
-  if (sel.rangeCount && el && el.closest('.leaf.current .editor')) {
+  if (sel.rangeCount && el && el.closest('.leaf.current .editor, .leaf.current .tb-body')) {
+    activePage = Number(el.closest('.leaf').dataset.page);
     savedRange = sel.getRangeAt(0).cloneRange();
     updateToolbarState();
   }
 });
-function editorEl() { return $('.leaf.current .editor'); }
+function editorEl() {
+  const n = savedRange && savedRange.commonAncestorContainer;
+  const el = n && (n.nodeType === 1 ? n : n.parentElement);
+  const ed = el && el.closest('.editor, .tb-body');
+  if (ed && ed.isConnected) return ed;
+  return $(`.leaf.current[data-page="${activePage}"] .editor`, book) || $('.leaf.current .editor', book);
+}
 function restore() {
   const ed = editorEl(); if (!ed) return null;
   ed.focus({ preventScroll: true });
@@ -1254,7 +1411,7 @@ function updateToolbarState() {
   });
   const sel = getSelection(); if (!sel.anchorNode) return;
   const el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
-  if (!el || !el.closest('.editor')) return;
+  if (!el || !el.closest('.editor, .tb-body')) return;
   const cs = getComputedStyle(el);
   const px = Math.round(parseFloat(cs.fontSize));
   const ss = $('#sizeSel');
@@ -1334,6 +1491,8 @@ async function findCovers() {
     h('img', { src: b.cover, alt: b.title }), h('span', {}, b.title))));
 }
 $('#cqBtn').addEventListener('click', findCovers);
+$('#textBoxBtn').addEventListener('click', addTextBox);
+$$('[data-layer]').forEach(b => b.addEventListener('click', () => layer(b.dataset.layer)));
 cq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findCovers(); } });
 // Picture search uses Pixabay (free key from pixabay.com/api/docs). Paste the key here.
 const PIXABAY_KEY = '57900009-5e974e03b01c87abbdaeba031';
