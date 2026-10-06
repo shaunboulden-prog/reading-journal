@@ -324,6 +324,10 @@ table.log td.t small { color: var(--ink-soft); }
 .finder-msg:empty { display: none; }
 .cover-hits { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
 .cover-hits:empty { display: none; }
+.cover-hits.pic-hits img { aspect-ratio: 1; }
+.pic-hits { max-height: 300px; overflow-y: auto; }
+.credit { margin: 0; font-size: 12px; color: var(--desk-muted); }
+.credit a { color: inherit; }
 .cover-hits button { border: 1px solid var(--chrome-line); background: var(--chrome); border-radius: 6px; padding: 4px; display: grid; gap: 4px; font-size: 11px; color: var(--desk-ink); text-align: left; }
 .cover-hits button:hover { border-color: var(--accent); }
 .cover-hits img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 3px; background: var(--chrome-line); }
@@ -382,7 +386,7 @@ table.log td.t small { color: var(--ink-soft); }
     </div>
     <div class="tgroup">
       <button class="tb" id="imgBtn" type="button" title="Find a book cover on Google Books"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></svg>Book covers</button>
-      <button class="tb" id="gImgBtn" type="button" title="Find pictures on Google Images"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>Google Images</button>
+      <button class="tb" id="gImgBtn" type="button" title="Find pictures for this page"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>Pictures</button>
     </div>
   </div>
 
@@ -422,17 +426,16 @@ table.log td.t small { color: var(--ink-soft); }
   <div class="cover-hits" id="coverHits"></div>
 </div>
 <div class="pop img-pop" id="gPop" hidden>
-  <h3>Google Images</h3>
+  <h3>Pictures</h3>
   <div class="search">
-    <label class="vh" for="gq">Search Google Images</label>
+    <label class="vh" for="gq">Search for pictures</label>
     <input type="search" id="gq" placeholder="Characters, places, a mood…" autocomplete="off">
-    <a class="btn" id="gLink" href="https://www.google.com/imghp" target="_blank" rel="noopener">Search</a>
+    <button class="btn" id="gqBtn" type="button">Find</button>
   </div>
-  <ol>
-    <li>Google Images opens in a new tab. Right-click a picture you like (long-press on a phone) and choose <b>Copy image</b>.</li>
-    <li>Come back and paste it into the box below, or anywhere on the page with Ctrl+V (⌘V on a Mac).</li>
-  </ol>
-  <div class="paste-zone" id="pasteZone" contenteditable="true" data-hint="Click here, then paste your picture" aria-label="Paste a picture here"></div>
+  <p class="finder-msg" id="picMsg" role="status"></p>
+  <div class="cover-hits pic-hits" id="picHits"></div>
+  <p class="credit" id="picCredit" hidden>Pictures from <a href="https://pixabay.com/" target="_blank" rel="noopener">Pixabay</a></p>
+  <div class="paste-zone" id="pasteZone" contenteditable="true" data-hint="Or paste a picture you copied: click here, then Ctrl+V (⌘V on a Mac)" aria-label="Paste a picture here"></div>
   <p class="note" id="imgNote" role="status"></p>
   <label class="btn ghost" for="imgFile">Upload from this device</label>
   <input type="file" id="imgFile" accept="image/*" multiple hidden>
@@ -1321,7 +1324,7 @@ async function findCovers() {
   coverHits.innerHTML = ''; coverMsg.textContent = 'Searching Google Books…';
   const hits = await googleBooks(q, 12);
   if (!hits) {
-    coverMsg.textContent = 'Google Books can’t be reached right now. Try the Google Images button instead.';
+    coverMsg.textContent = 'Google Books can’t be reached right now. Try the Pictures button instead.';
     return;
   }
   const withCovers = hits.filter(b => b.cover);
@@ -1332,17 +1335,46 @@ async function findCovers() {
 }
 $('#cqBtn').addEventListener('click', findCovers);
 cq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findCovers(); } });
-const gq = $('#gq'), gLink = $('#gLink');
-const setG = () => { const q = gq.value.trim(); gLink.href = q ? 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q) : 'https://www.google.com/imghp'; };
-gq.addEventListener('input', setG);
-gq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); setG(); gLink.click(); } });
+// Picture search uses Pixabay (free key from pixabay.com/api/docs). Paste the key here.
+const PIXABAY_KEY = '';
+const gq = $('#gq'), picHits = $('#picHits'), picMsg = $('#picMsg');
+async function findPictures() {
+  const q = gq.value.trim(); if (!q) return;
+  picHits.innerHTML = '';
+  if (!PIXABAY_KEY) { picMsg.textContent = 'Picture search needs a Pixabay key. You can still paste or upload a picture below.'; return; }
+  picMsg.textContent = 'Searching…';
+  let hits = null;
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch('https://pixabay.com/api/?safesearch=true&per_page=24&image_type=all&key=' + encodeURIComponent(PIXABAY_KEY) + '&q=' + encodeURIComponent(q.slice(0, 100)), { signal: ctl.signal });
+    if (r.ok) hits = (await r.json()).hits || [];
+  } catch (e) {} finally { clearTimeout(t); }
+  if (!hits) { picMsg.textContent = 'Picture search isn’t answering right now. You can still paste or upload a picture below.'; return; }
+  if (!hits.length) { picMsg.textContent = `No pictures found for “${q}”. Try fewer or different words.`; return; }
+  picMsg.textContent = 'Pick a picture to add it to this page.';
+  $('#picCredit').hidden = false;
+  hits.forEach(p => picHits.append(h('button', { type: 'button', title: p.tags, onmousedown: e => e.preventDefault(), onclick: () => addPixabay(p) },
+    h('img', { src: p.previewURL, alt: p.tags || 'Picture', loading: 'lazy' }))));
+}
+// Save a copy of the picture in the journal, so it keeps showing after Pixabay's link expires.
+async function addPixabay(p) {
+  picMsg.textContent = 'Adding…';
+  try {
+    const r = await fetch(p.webformatURL);
+    if (!r.ok) throw 0;
+    const blob = await r.blob();
+    await addImage(new File([blob], 'pixabay.jpg', { type: blob.type || 'image/jpeg' }));
+  } catch (e) { addImageUrl(p.webformatURL); }
+}
+$('#gqBtn').addEventListener('click', findPictures);
+gq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findPictures(); } });
 // Start each search from the book picked at the top of the page, unless the reader typed their own.
 function pageBook() { const e = currentEntry(); return e && e.bookId ? S.books.find(b => b.id === e.bookId) : null; }
 function prefill(input, text) { if (text && (!input.value || input.dataset.auto === '1')) { input.value = text; input.dataset.auto = '1'; } }
 $('#cq').addEventListener('input', e => { e.target.dataset.auto = ''; });
 gq.addEventListener('input', () => { gq.dataset.auto = ''; });
 $('#imgBtn').addEventListener('click', e => { const b = pageBook(); prefill(cq, b && [b.title, b.author].filter(Boolean).join(' ')); openPop($('#imgPop'), e.currentTarget); });
-$('#gImgBtn').addEventListener('click', e => { $('#imgNote').textContent = ''; const b = pageBook(); prefill(gq, b && [b.title, b.author].filter(Boolean).join(' ')); setG(); openPop($('#gPop'), e.currentTarget); });
+$('#gImgBtn').addEventListener('click', e => { $('#imgNote').textContent = ''; const b = pageBook(); prefill(gq, b && b.title); openPop($('#gPop'), e.currentTarget); });
 $('#imgFile').addEventListener('change', e => { [...e.target.files].forEach(f => addImage(f)); e.target.value = ''; });
 const pz = $('#pasteZone');
 pz.addEventListener('paste', e => {
@@ -1351,7 +1383,7 @@ pz.addEventListener('paste', e => {
   if (img) { addImage(img); return; }
   const t = e.clipboardData.getData('text/plain');
   $('#imgNote').textContent = t && /^https?:/.test(t.trim())
-    ? 'That pasted a web address, not the picture. On Google Images, open the picture, right-click it and choose Copy image.'
+    ? 'That pasted a web address, not the picture. Right-click the picture itself and choose Copy image.'
     : 'No picture found on the clipboard. Copy a picture first, then paste here.';
 });
 pz.addEventListener('input', () => { pz.innerHTML = ''; });
