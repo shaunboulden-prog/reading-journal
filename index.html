@@ -1336,7 +1336,7 @@ async function findCovers() {
 $('#cqBtn').addEventListener('click', findCovers);
 cq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findCovers(); } });
 // Picture search uses Pixabay (free key from pixabay.com/api/docs). Paste the key here.
-const PIXABAY_KEY = '';
+const PIXABAY_KEY = '57900009-5e974e03b01c87abbdaeba031';
 const gq = $('#gq'), picHits = $('#picHits'), picMsg = $('#picMsg');
 async function findPictures() {
   const q = gq.value.trim(); if (!q) return;
