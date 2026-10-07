@@ -336,6 +336,15 @@ table.log td.t small { color: var(--ink-soft); }
 .vbars { margin-bottom: 16px; }
 .viz-empty { margin: 0; font-size: 13px; color: var(--ink-soft); }
 .viz-tip { position: absolute; z-index: 300; background: #1f2a33; color: #fff; font-size: 12.5px; padding: 5px 9px; border-radius: 6px; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+/* graveyard */
+.yard { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px 12px; align-items: end; padding: 4px 0 10px; border-bottom: 3px solid #8a9a6b; }
+.stone { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 150px; padding: 18px 10px 12px; border: 1px solid #a9a59b; border-bottom-width: 3px; border-radius: 60px 60px 4px 4px; background: linear-gradient(160deg, #e4e1da, #c9c5bb); color: #3a3833; text-align: center; box-shadow: inset 0 -6px 10px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.12); transition: transform .15s; }
+.stone:hover { transform: translateY(-2px); }
+.stone .rip { font-family: var(--display); font-size: 12px; letter-spacing: .2em; color: #6b675e; }
+.stone b { font-family: var(--display); font-weight: 600; font-size: 14px; line-height: 1.2; overflow-wrap: anywhere; }
+.stone small { font-size: 12px; color: #5f5b52; }
+.stone-meta { font-size: 11px; color: #6b675e; }
+.epitaph { font-family: var(--hand); font-size: 17px; line-height: 1.1; color: #3a3833; margin-top: 2px; }
 /* journal entry */
 .entry .page-body { padding: 18px 22px 46px 40px; gap: 6px; overflow: hidden; }
 .entry-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12px; color: var(--ink-soft); }
@@ -715,6 +724,7 @@ const DEFAULT_STATE = () => ({
   owner: { name: '', since: '', genres: '', goal: 24, contact: '', quote: '' },
   books: SAMPLE_BOOKS,
   tbr: [],
+  dnf: [],
   logYear: THIS_YEAR,
   entries: [{ id: uid(), date: todayISO(), bookId: '', html: '', stickers: [] }, { id: uid(), date: '', bookId: '', html: '', stickers: [] }],
   page: 0,
@@ -733,9 +743,9 @@ function save(now) {
 }
 
 /* ---------------- page model ---------------- */
-const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr', 'stats'];
+const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr', 'stats', 'dnf'];
 const pageCount = () => FIXED.length + S.entries.length;
-const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read', 'Reading stats'][i] : `Journal page ${i - FIXED.length + 1}`;
+const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read', 'Reading stats', 'The graveyard'][i] : `Journal page ${i - FIXED.length + 1}`;
 let cur = 0;
 let turning = false;
 
@@ -767,6 +777,7 @@ function renderPage(i, side = 'S') {
   else if (i === 3) leaf = renderLog();
   else if (i === 4) leaf = renderTbr();
   else if (i === 5) leaf = renderStats();
+  else if (i === 6) leaf = renderGraveyard();
   else leaf = renderEntry(i - FIXED.length);
   leaf.dataset.page = i;
   if (side === 'L') leaf.classList.add('side-left');
@@ -1008,6 +1019,10 @@ function openTbrForm(t) {
     if (!btn.classList.contains('armed')) { btn.classList.add('armed'); btn.textContent = 'Tap again to remove'; return; }
     S.tbr = S.tbr.filter(x => x !== t); save(); closeModal(); refresh(); toast(`Removed “${t.title}” from your TBR`);
   } }, 'Remove') : null;
+  const dnfBtn = editing ? h('button', { type: 'button', class: 'btn ghost', title: 'Started it and gave up? Move it to the graveyard', onclick: () => {
+    closeModal();
+    openDnfForm(null, { title: t.title, author: t.author || '', genre: t.genre || '', pages: t.pages || '', cover: t.cover || '' }, () => { S.tbr = S.tbr.filter(x => x !== t); });
+  } }, "Didn't finish") : null;
   const form = h('form', { class: 'sheet', onsubmit: e => {
     e.preventDefault();
     if (!d.title.trim()) { err.textContent = 'Add a title so you remember what to read.'; $('#tf-title').focus(); return; }
@@ -1029,9 +1044,89 @@ function openTbrForm(t) {
       h('label', { class: 'f full' }, 'Where the rec came from', inp('source', { list: 'recList', autocomplete: 'off', placeholder: 'A friend, BookTok, the library…' }))),
     h('datalist', { id: 'recList' }, REC_SOURCES.map(r => h('option', { value: r }))),
     err,
-    h('div', { class: 'sheet-actions' }, removeBtn,
+    h('div', { class: 'sheet-actions' }, removeBtn, dnfBtn,
       h('button', { type: 'button', class: 'btn ghost', onclick: closeModal }, 'Cancel'),
       h('button', { type: 'submit', class: 'btn' }, editing ? 'Save changes' : 'Add to TBR')));
+  openModal(form);
+}
+
+/* ----- graveyard (did not finish) ----- */
+const DNF_REASONS = ['Too slow', 'Lost interest', 'Not for me', "Didn't like the writing", "Couldn't connect with the characters", 'Too dark', "The hype didn't hold up", 'Wrong time for it', 'Too confusing', 'Got a better book'];
+const fmtFullDate = iso => { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); };
+function renderGraveyard() {
+  const leaf = h('div', { class: 'leaf paper' });
+  const yard = h('div', { class: 'yard' });
+  [...S.dnf].sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(t => {
+    const where = t.stoppedAt ? (t.pages ? `Stopped on p. ${t.stoppedAt} of ${t.pages}` : `Stopped on p. ${t.stoppedAt}`) : '';
+    yard.append(h('button', { type: 'button', class: 'stone', onclick: () => openDnfForm(t), 'aria-label': `${t.title}. Edit` },
+      h('span', { class: 'rip', 'aria-hidden': 'true' }, 'R.I.P.'),
+      h('b', {}, t.title),
+      t.author ? h('small', {}, t.author) : null,
+      where ? h('span', { class: 'stone-meta' }, where) : null,
+      t.date ? h('span', { class: 'stone-meta' }, fmtFullDate(t.date)) : null,
+      t.reason ? h('span', { class: 'epitaph' }, `“${t.reason}”`) : null));
+  });
+  leaf.append(h('div', { class: 'page-body' },
+    h('h2', { class: 'page-title' }, 'The Graveyard'),
+    h('p', { class: 'page-sub' }, S.dnf.length ? (S.dnf.length === 1 ? '1 book laid to rest' : `${S.dnf.length} books laid to rest`) : 'No books buried yet'),
+    S.dnf.length ? yard : h('p', { class: 'log-empty' }, 'Books you didn’t finish rest here. No guilt allowed.'),
+    h('button', { class: 'ink-btn', type: 'button', onclick: () => openDnfForm() }, '+ Bury a book')));
+  return leaf;
+}
+// prefill: carry a book over from the shelf or TBR; onBuried runs after it's saved so the caller can remove the original
+function openDnfForm(t, prefill, onBuried) {
+  const editing = !!t;
+  const d = t ? { ...t } : { title: '', author: '', genre: '', pages: '', stoppedAt: '', date: todayISO(), reason: '', medium: '', cover: '', ...(prefill || {}) };
+  const inp = (k, attrs) => { const el = h('input', { id: 'df-' + k, ...attrs }); el.value = d[k] ?? ''; el.addEventListener('input', () => d[k] = el.value); return el; };
+  const field = (label, input, full) => h('label', { class: 'f' + (full ? ' full' : '') }, label, input);
+  const mediumSeg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Medium' });
+  const drawMedium = () => { mediumSeg.innerHTML = ''; MEDIUMS.forEach(([v, l]) => mediumSeg.append(h('button', { type: 'button', class: d.medium === v ? 'on' : '', 'aria-pressed': String(d.medium === v), onclick: () => { d.medium = d.medium === v ? '' : v; drawMedium(); } }, l))); };
+  drawMedium();
+  const err = h('p', { class: 'note', style: { margin: 0, color: 'var(--danger)', fontSize: '13px' } });
+  const removeBtn = editing ? h('button', { type: 'button', class: 'btn danger left', onclick: e => {
+    const btn = e.currentTarget;
+    if (!btn.classList.contains('armed')) { btn.classList.add('armed'); btn.textContent = 'Tap again to remove'; return; }
+    S.dnf = S.dnf.filter(x => x !== t); save(); closeModal(); refresh(); toast(`Removed “${t.title}” from the graveyard`);
+  } }, 'Remove') : null;
+  const reviveBtn = editing ? h('button', { type: 'button', class: 'btn ghost', title: 'Give it another chance', onclick: () => {
+    S.dnf = S.dnf.filter(x => x !== t);
+    S.tbr.push({ id: uid(), added: todayISO(), title: t.title, author: t.author || '', source: '', cover: t.cover || '', genre: t.genre || '', pages: t.pages || '' });
+    save(); closeModal(); refresh(); toast(`“${t.title}” is back on your TBR`);
+  } }, 'Back to TBR') : null;
+  const form = h('form', { class: 'sheet', onsubmit: e => {
+    e.preventDefault();
+    if (!d.title.trim()) { err.textContent = 'Add a title for the headstone.'; $('#df-title').focus(); return; }
+    const stopped = d.stoppedAt ? Number(d.stoppedAt) : '', pages = d.pages ? Number(d.pages) : '';
+    if (stopped && pages && stopped > pages) { err.textContent = 'The page you stopped on is past the end of the book.'; $('#df-stoppedAt').focus(); return; }
+    const clean = { ...d, title: d.title.trim(), author: (d.author || '').trim(), reason: (d.reason || '').trim(), stoppedAt: stopped, pages };
+    if (editing) Object.assign(t, clean); else S.dnf.push({ id: uid(), ...clean });
+    save(); closeModal();
+    if (!editing && onBuried) onBuried();
+    refresh(); toast(editing ? 'Headstone updated' : `“${clean.title}” laid to rest`);
+  } },
+    h('h2', {}, editing ? 'Edit headstone' : 'Bury a book'),
+    editing || prefill ? null : bookFinder(b => {
+      const set = (k, v) => { if (v == null || v === '') return; d[k] = String(v); const el = $('#df-' + k); if (el) { el.value = v; const f = el.closest('.f'); f.classList.add('filled'); setTimeout(() => f.classList.remove('filled'), 1500); } };
+      set('title', b.title); set('author', b.author); set('genre', b.genre); set('pages', b.pages);
+      d.cover = b.cover || '';
+      err.textContent = '';
+      setTimeout(() => $('#df-stoppedAt').focus(), 0);
+    }),
+    h('div', { class: 'form-grid' },
+      field('Title', inp('title', { required: true, autocomplete: 'off' }), true),
+      field('Author', inp('author', { autocomplete: 'off' })),
+      field('Genre', inp('genre', { list: 'genreList', autocomplete: 'off' })),
+      field('Stopped on page', inp('stoppedAt', { type: 'number', min: 0, inputmode: 'numeric' })),
+      field('Total pages', inp('pages', { type: 'number', min: 1, inputmode: 'numeric' })),
+      field('Date you stopped', inp('date', { type: 'date' })),
+      h('div', { class: 'f' }, 'Medium', mediumSeg),
+      field('Why you stopped', inp('reason', { list: 'dnfReasons', autocomplete: 'off', placeholder: 'Too slow, not for me…' }), true)),
+    h('datalist', { id: 'genreList' }, GENRES.map(g => h('option', { value: g }))),
+    h('datalist', { id: 'dnfReasons' }, DNF_REASONS.map(r => h('option', { value: r }))),
+    err,
+    h('div', { class: 'sheet-actions' }, removeBtn, reviveBtn,
+      h('button', { type: 'button', class: 'btn ghost', onclick: closeModal }, 'Cancel'),
+      h('button', { type: 'submit', class: 'btn' }, editing ? 'Save changes' : 'Lay to rest')));
   openModal(form);
 }
 
@@ -1453,6 +1548,12 @@ function openBookForm(b, year, prefill, onAdded) {
     S.books = S.books.filter(x => x.id !== b.id); S.entries.forEach(en => { if (en.bookId === b.id) en.bookId = ''; });
     save(); closeModal(); refresh(); toast(`Removed “${b.title}”`);
   } }, 'Remove book') : null;
+  const dnfBtn = editing ? h('button', { type: 'button', class: 'btn ghost', title: 'Move this book to the graveyard', onclick: () => {
+    closeModal();
+    openDnfForm(null, { title: b.title, author: b.author || '', genre: b.genre || '', pages: b.pages || '', medium: b.medium || '', cover: b.cover || '' }, () => {
+      S.books = S.books.filter(x => x.id !== b.id); S.entries.forEach(en => { if (en.bookId === b.id) en.bookId = ''; });
+    });
+  } }, "Didn't finish") : null;
   const form = h('form', { class: 'sheet', onsubmit: e => {
     e.preventDefault();
     if (!d.title.trim()) { err.textContent = 'Add a title so the book can go on your shelf.'; $('#bf-title').focus(); return; }
@@ -1481,7 +1582,7 @@ function openBookForm(b, year, prefill, onAdded) {
       h('div', { class: 'f' }, 'Rating', stars),
       h('div', { class: 'f full' }, 'Spine color on your shelf', chips)),
     dl, err,
-    h('div', { class: 'sheet-actions' }, removeBtn,
+    h('div', { class: 'sheet-actions' }, removeBtn, dnfBtn,
       h('button', { type: 'button', class: 'btn ghost', onclick: closeModal }, 'Cancel'),
       h('button', { type: 'submit', class: 'btn' }, editing ? 'Save changes' : 'Add to shelf')));
   openModal(form);
@@ -1754,6 +1855,7 @@ pz.addEventListener('drop', e => { e.preventDefault(); const f = [...e.dataTrans
     const d = DEFAULT_STATE();
     S = { ...d, ...saved, cover: { ...d.cover, ...saved.cover }, owner: { ...d.owner, ...saved.owner } };
     if (!Array.isArray(S.tbr)) S.tbr = [];
+    if (!Array.isArray(S.dnf)) S.dnf = [];
     if (!S.entries || !S.entries.length) S.entries = d.entries;
   }
   if (!storageOK) $('#saveState').textContent = 'Not saved: this browser blocks storage';
