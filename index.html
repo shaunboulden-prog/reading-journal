@@ -287,6 +287,17 @@ table.log td.t small { color: var(--ink-soft); }
 .stars { color: #c08a1e; letter-spacing: 1px; white-space: nowrap; }
 .log-empty { font-family: var(--hand); font-size: 22px; color: var(--ink-soft); text-align: center; padding: 18px 0; }
 
+.tbr-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.tbr-item { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--rule); padding: 6px 0; }
+.tbr-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: none; text-align: left; padding: 2px 0; color: var(--ink); }
+.tbr-main .thumb { float: none; margin: 0; }
+.tbr-box { width: 16px; height: 16px; border: 1.5px solid var(--ink-soft); border-radius: 3px; flex: none; }
+.tbr-text { min-width: 0; display: grid; }
+.tbr-text b { font-weight: 600; font-size: 14px; }
+.tbr-text small { color: var(--ink-soft); font-size: 12.5px; }
+.tbr-rec { font-family: var(--hand); font-size: 18px; color: #24427a; line-height: 1.1; }
+.tbr-start { flex: none; border: 1px solid var(--rule); background: transparent; color: var(--ink); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+.tbr-start:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 /* journal entry */
 .entry .page-body { padding: 18px 22px 46px 40px; gap: 6px; overflow: hidden; }
 .entry-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12px; color: var(--ink-soft); }
@@ -665,6 +676,7 @@ const DEFAULT_STATE = () => ({
   cover: { binding: 'spiral', color: '#2f4858', material: 'leather', title: 'My Reading Journal', subtitle: String(THIS_YEAR), titleFont: 'Bookman Old Style', titleColor: '#e8d8a8', label: 'foil', image: null, strap: true },
   owner: { name: '', since: '', genres: '', goal: 24, contact: '', quote: '' },
   books: SAMPLE_BOOKS,
+  tbr: [],
   logYear: THIS_YEAR,
   entries: [{ id: uid(), date: todayISO(), bookId: '', html: '', stickers: [] }, { id: uid(), date: '', bookId: '', html: '', stickers: [] }],
   page: 0,
@@ -683,9 +695,9 @@ function save(now) {
 }
 
 /* ---------------- page model ---------------- */
-const FIXED = ['cover', 'owner', 'shelf', 'log'];
+const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr'];
 const pageCount = () => FIXED.length + S.entries.length;
-const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log'][i] : `Journal page ${i - FIXED.length + 1}`;
+const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read'][i] : `Journal page ${i - FIXED.length + 1}`;
 let cur = 0;
 let turning = false;
 
@@ -715,6 +727,7 @@ function renderPage(i, side = 'S') {
   else if (i === 1) leaf = renderOwner();
   else if (i === 2) leaf = renderShelf();
   else if (i === 3) leaf = renderLog();
+  else if (i === 4) leaf = renderTbr();
   else leaf = renderEntry(i - FIXED.length);
   leaf.dataset.page = i;
   if (side === 'L') leaf.classList.add('side-left');
@@ -841,6 +854,68 @@ function renderLog() {
       : h('div', { class: 'log-empty' }, `No books logged for ${y} yet.`),
     h('button', { class: 'ink-btn', type: 'button', onclick: () => openBookForm(null, y) }, '+ Log a book')));
   return leaf;
+}
+
+/* ----- to be read ----- */
+const REC_SOURCES = ['BookTok', 'Bookstagram', 'A friend', 'Family', 'Book club', 'Bookstore', 'Library', 'Goodreads', 'Podcast', 'YouTube', 'Newsletter', 'Award list'];
+function renderTbr() {
+  const leaf = h('div', { class: 'leaf paper' });
+  const list = h('ol', { class: 'tbr-list' });
+  S.tbr.forEach(t => list.append(h('li', { class: 'tbr-item' },
+    h('button', { type: 'button', class: 'tbr-main', onclick: () => openTbrForm(t), 'aria-label': `Edit ${t.title}` },
+      t.cover ? h('img', { class: 'thumb', src: t.cover, alt: '', onerror: e => e.target.remove() }) : h('span', { class: 'tbr-box', 'aria-hidden': 'true' }),
+      h('span', { class: 'tbr-text' },
+        h('b', {}, t.title),
+        t.author ? h('small', {}, t.author) : null,
+        t.source ? h('span', { class: 'tbr-rec' }, 'Rec: ' + t.source) : null)),
+    h('button', { type: 'button', class: 'tbr-start', title: 'Started it? Move it to your reading log', onclick: () => startTbr(t) }, 'Start reading'))));
+  leaf.append(h('div', { class: 'page-body' },
+    h('h2', { class: 'page-title' }, 'To Be Read'),
+    h('p', { class: 'page-sub' }, S.tbr.length ? (S.tbr.length === 1 ? '1 book waiting' : `${S.tbr.length} books waiting`) : 'Nothing on the pile yet'),
+    S.tbr.length ? list : h('p', { class: 'log-empty' }, 'Add the books people tell you about, so you never lose a recommendation.'),
+    h('button', { class: 'ink-btn', type: 'button', onclick: () => openTbrForm() }, '+ Add to TBR')));
+  return leaf;
+}
+function startTbr(t) {
+  openBookForm(null, THIS_YEAR, { title: t.title, author: t.author || '', cover: t.cover || '', genre: t.genre || '', pages: t.pages || '', start: todayISO(), end: '' }, () => {
+    S.tbr = S.tbr.filter(x => x !== t); save(); refresh(); toast(`“${t.title}” moved to your reading log`);
+  });
+}
+function openTbrForm(t) {
+  const editing = !!t;
+  const d = t ? { ...t } : { title: '', author: '', source: '', cover: '' };
+  const inp = (k, attrs) => { const el = h('input', { id: 'tf-' + k, ...attrs }); el.value = d[k] ?? ''; el.addEventListener('input', () => d[k] = el.value); return el; };
+  const err = h('p', { class: 'note', style: { margin: 0, color: 'var(--danger)', fontSize: '13px' } });
+  const removeBtn = editing ? h('button', { type: 'button', class: 'btn danger left', onclick: e => {
+    const btn = e.currentTarget;
+    if (!btn.classList.contains('armed')) { btn.classList.add('armed'); btn.textContent = 'Tap again to remove'; return; }
+    S.tbr = S.tbr.filter(x => x !== t); save(); closeModal(); refresh(); toast(`Removed “${t.title}” from your TBR`);
+  } }, 'Remove') : null;
+  const form = h('form', { class: 'sheet', onsubmit: e => {
+    e.preventDefault();
+    if (!d.title.trim()) { err.textContent = 'Add a title so you remember what to read.'; $('#tf-title').focus(); return; }
+    const clean = { ...d, title: d.title.trim(), author: (d.author || '').trim(), source: (d.source || '').trim() };
+    if (editing) Object.assign(t, clean); else S.tbr.push({ id: uid(), added: todayISO(), ...clean });
+    save(); closeModal(); refresh(); toast(editing ? 'TBR updated' : `“${clean.title}” added to your TBR`);
+  } },
+    h('h2', {}, editing ? 'Edit TBR book' : 'Add to your TBR'),
+    editing ? null : bookFinder(b => {
+      const set = (k, v) => { if (v == null || v === '') return; d[k] = String(v); const el = $('#tf-' + k); if (el) { el.value = v; const f = el.closest('.f'); f.classList.add('filled'); setTimeout(() => f.classList.remove('filled'), 1500); } };
+      set('title', b.title); set('author', b.author);
+      d.cover = b.cover || ''; d.genre = b.genre || ''; d.pages = b.pages || '';
+      err.textContent = '';
+      setTimeout(() => $('#tf-source').focus(), 0);
+    }),
+    h('div', { class: 'form-grid' },
+      h('label', { class: 'f full' }, 'Book title', inp('title', { required: true, autocomplete: 'off' })),
+      h('label', { class: 'f full' }, 'Author', inp('author', { autocomplete: 'off' })),
+      h('label', { class: 'f full' }, 'Where the rec came from', inp('source', { list: 'recList', autocomplete: 'off', placeholder: 'A friend, BookTok, the library…' }))),
+    h('datalist', { id: 'recList' }, REC_SOURCES.map(r => h('option', { value: r }))),
+    err,
+    h('div', { class: 'sheet-actions' }, removeBtn,
+      h('button', { type: 'button', class: 'btn ghost', onclick: closeModal }, 'Cancel'),
+      h('button', { type: 'submit', class: 'btn' }, editing ? 'Save changes' : 'Add to TBR')));
+  openModal(form);
 }
 
 /* ----- journal entry ----- */
@@ -1239,9 +1314,9 @@ function bookFinder(onPick) {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
   return h('div', { class: 'finder' }, h('div', { class: 'finder-row' }, input, btn), msg, list);
 }
-function openBookForm(b, year) {
+function openBookForm(b, year, prefill, onAdded) {
   const editing = !!b;
-  const d = b ? { ...b } : { title: '', author: '', genre: '', pages: '', start: '', end: year && year !== THIS_YEAR ? '' : todayISO(), rating: 0, color: CLOTH[Math.floor(Math.random() * CLOTH.length)] };
+  const d = b ? { ...b } : { title: '', author: '', genre: '', pages: '', start: '', end: year && year !== THIS_YEAR ? '' : todayISO(), rating: 0, color: CLOTH[Math.floor(Math.random() * CLOTH.length)], ...(prefill || {}) };
   const field = (label, input, full) => h('label', { class: 'f' + (full ? ' full' : '') }, label, input);
   const inp = (k, attrs) => { const el = h('input', { id: 'bf-' + k, ...attrs }); el.value = d[k] ?? ''; el.addEventListener('input', () => d[k] = el.value); return el; };
   const stars = h('div', { class: 'star-pick', role: 'group', 'aria-label': 'Rating' });
@@ -1264,10 +1339,11 @@ function openBookForm(b, year) {
     const clean = { ...d, title: d.title.trim(), author: (d.author || '').trim(), pages: d.pages ? Number(d.pages) : '', sample: editing ? b.sample : false };
     if (!clean.end && !clean.start) clean.addedYear = year || THIS_YEAR;
     if (editing) Object.assign(b, clean, { sample: false }); else S.books.push({ id: uid(), ...clean });
-    save(); closeModal(); refresh(); toast(editing ? 'Book updated' : `“${clean.title}” added to your shelf`);
+    save(); closeModal(); refresh();
+    if (!editing && onAdded) onAdded(); else toast(editing ? 'Book updated' : `“${clean.title}” added to your shelf`);
   } },
     h('h2', {}, editing ? 'Edit book' : 'Add a book'),
-    editing ? null : bookFinder(b => {
+    editing || prefill ? null : bookFinder(b => {
       const set = (k, v) => { if (v == null || v === '') return; d[k] = String(v); const el = $('#bf-' + k); if (el) { el.value = v; const f = el.closest('.f'); f.classList.add('filled'); setTimeout(() => f.classList.remove('filled'), 1500); } };
       set('title', b.title); set('author', b.author); set('genre', b.genre); set('pages', b.pages);
       d.cover = b.cover || '';
@@ -1555,6 +1631,7 @@ pz.addEventListener('drop', e => { e.preventDefault(); const f = [...e.dataTrans
   if (saved && saved.v === 1) {
     const d = DEFAULT_STATE();
     S = { ...d, ...saved, cover: { ...d.cover, ...saved.cover }, owner: { ...d.owner, ...saved.owner } };
+    if (!Array.isArray(S.tbr)) S.tbr = [];
     if (!S.entries || !S.entries.length) S.entries = d.entries;
   }
   if (!storageOK) $('#saveState').textContent = 'Not saved: this browser blocks storage';
