@@ -351,6 +351,8 @@ table.log td.t small { color: var(--ink-soft); }
 /* journal entry */
 .entry .page-body { padding: 18px 22px 46px 40px; gap: 6px; overflow: hidden; }
 .entry-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12px; color: var(--ink-soft); }
+.entry-head.cont { min-height: 26px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; font-size: 10.5px; }
+.entry-head.cont i { font-family: var(--hand); font-style: normal; font-size: 20px; color: #24427a; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .entry-head label { display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; font-size: 10.5px; }
 .entry-head input, .entry-head select { border: 0; border-bottom: 1px solid var(--rule); background: transparent; font-family: var(--hand); font-size: 20px; color: #24427a; text-transform: none; letter-spacing: 0; font-weight: 400; max-width: 190px; padding: 0 2px; }
 .page-body > * { flex-shrink: 0; }
@@ -516,8 +518,8 @@ table.log td.t small { color: var(--ink-soft); }
     <label class="vh" for="jump">Go to page</label>
     <select id="jump"></select>
     <button class="pbtn" id="nextBtn" type="button">Next ›</button>
-    <button class="pbtn" id="addPageBtn" type="button" hidden>+ New page</button>
-    <button class="pbtn danger" id="delPageBtn" type="button" hidden>Remove page</button>
+    <button class="pbtn" id="addPageBtn" type="button" hidden>+ New entry</button>
+    <button class="pbtn danger" id="delPageBtn" type="button" hidden>Remove entry</button>
   </nav>
 </div>
 
@@ -751,13 +753,15 @@ function save(now) {
 
 /* ---------------- page model ---------------- */
 // Page order: front pages, then journal pages, then back pages.
+// Journal pages come in pairs: one entry is a left page and a right page.
+const entryName = k => k % 2 ? `Journal entry ${(k - 1) / 2 + 1}, page 2` : `Journal entry ${k / 2 + 1}`;
 const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr'];
 const BACK = ['stats', 'dnf'];
 const backStart = () => FIXED.length + S.entries.length;
 const isEntry = i => i >= FIXED.length && i < backStart();
 const pageCount = () => backStart() + BACK.length;
 const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read'][i]
-  : i >= backStart() ? ['Reading stats', 'The graveyard'][i - backStart()] : `Journal page ${i - FIXED.length + 1}`;
+  : i >= backStart() ? ['Reading stats', 'The graveyard'][i - backStart()] : entryName(i - FIXED.length);
 let cur = 0;
 let turning = false;
 
@@ -1176,10 +1180,11 @@ function openDnfForm(t, prefill, onBuried) {
 let activeEditor = null;
 function renderEntry(k) {
   const e = S.entries[k];
+  const lead = k % 2 ? S.entries[k - 1] : null;
   const leaf = h('div', { class: 'leaf paper entry' });
   const bookSel = h('select', { id: 'entryBook' + k, 'aria-label': 'Book' }, h('option', { value: '' }, '—'), sortedBooks().map(b => h('option', { value: b.id }, b.title)));
   bookSel.value = e.bookId || '';
-  bookSel.addEventListener('change', () => { e.bookId = bookSel.value; save(); });
+  bookSel.addEventListener('change', () => { e.bookId = bookSel.value; save(); if (spread) refresh(); });
   const dateIn = h('input', { type: 'date', id: 'entryDate' + k, 'aria-label': 'Date', value: e.date || '' });
   dateIn.addEventListener('change', () => { e.date = dateIn.value; save(); });
   const editor = h('div', { class: 'editor', contenteditable: 'true', spellcheck: 'true', 'aria-label': 'Journal page' });
@@ -1205,10 +1210,12 @@ function renderEntry(k) {
       toast('That dropped a link, not the picture. Right-click the picture, choose Copy image, then paste here.');
     }
   });
+  const leadBook = lead && S.books.find(b => b.id === lead.bookId);
   leaf.append(h('div', { class: 'page-body' },
-    h('div', { class: 'entry-head' },
-      h('label', {}, 'Date', dateIn),
-      h('label', {}, 'Book', bookSel)),
+    lead ? h('div', { class: 'entry-head cont' }, h('span', {}, `Entry ${(k - 1) / 2 + 1}, continued`), leadBook ? h('i', {}, leadBook.title) : null)
+      : h('div', { class: 'entry-head' },
+        h('label', {}, 'Date', dateIn),
+        h('label', {}, 'Book', bookSel)),
     canvas));
   return leaf;
 }
@@ -1356,13 +1363,13 @@ const wideMQ = matchMedia('(min-width: 1000px)');
 let spread = wideMQ.matches;
 const spreadStart = i => i <= 0 ? 0 : (i % 2 ? i : i - 1);
 const blankEntry = () => ({ id: uid(), date: todayISO(), bookId: '', html: '', stickers: [] });
-function ensureFullSpreads() { if (spread && (pageCount() - 1) % 2) { S.entries.push(blankEntry()); save(); } }
+function ensureFullSpreads() { if (S.entries.length % 2) { S.entries.push(blankEntry()); save(); } }
 function mount(c) {
   $$('.leaf, .flipper', book).forEach(l => l.remove());
   drawBinding();
   book.classList.toggle('spread', spread);
+  ensureFullSpreads();
   if (spread) {
-    ensureFullSpreads();
     cur = spreadStart(Math.min(c, pageCount() - 1));
     book.classList.toggle('closed', cur === 0);
     if (cur === 0) book.append(renderPage(0, 'R'));
@@ -1434,18 +1441,20 @@ function afterTurn() {
   $('#nextBtn').textContent = cur === 0 ? 'Open ›' : 'Next ›';
   $('#nextBtn').disabled = vis.includes(pageCount() - 1);
   $('#addPageBtn').hidden = !onEntry;
-  $('#delPageBtn').hidden = !onEntry || S.entries.length < 2;
-  disarm($('#delPageBtn'), 'Remove page');
+  $('#delPageBtn').hidden = !onEntry || S.entries.length < 4;
+  disarm($('#delPageBtn'), 'Remove entry');
   const j = $('#jump'); j.innerHTML = '';
-  for (let i = 0; i < pageCount(); i++) if (!spread || i === spreadStart(i)) j.append(h('option', { value: i }, spread && i > 0 ? `${pageName(i)} & ${pageName(i + 1)}`.replace(/Journal page (\d+) & Journal page /, 'Journal pages $1–') : pageName(i)));
+  for (let i = 0; i < pageCount(); i++) if (!spread || i === spreadStart(i)) j.append(h('option', { value: i }, spread && i > 0 ? `${pageName(i)} & ${pageName(i + 1)}`.replace(/(Journal entry \d+) & Journal entry \d+, page 2/, '$1') : pageName(i)));
   j.value = cur;
   updateLayerButtons();
   const c = $('.leaf.current .corner.next', book);
   if (cur === 0 && c && !S.opened) c.classList.add('pulse');
 }
+// Adds a two-page entry after the one being worked on and returns its first page.
 function addEntry(after) {
-  const at = after && isEntry(activePage) ? activePage - FIXED.length + 1 : S.entries.length;
-  S.entries.splice(at, 0, blankEntry()); save();
+  const k = activePage - FIXED.length;
+  const at = after && isEntry(activePage) ? k - (k % 2) + 2 : S.entries.length;
+  S.entries.splice(at, 0, blankEntry(), { ...blankEntry(), date: '' }); save();
   return at + FIXED.length;
 }
 $('#prevBtn').addEventListener('click', prev);
@@ -1455,11 +1464,12 @@ $('#addPageBtn').addEventListener('click', () => { const t = addEntry(true); ens
 function disarm(b, label) { b.classList.remove('armed'); b.textContent = label; clearTimeout(b._t); }
 $('#delPageBtn').addEventListener('click', e => {
   const b = e.currentTarget;
-  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = spread ? `Tap again to remove page ${activePage - FIXED.length + 1}` : 'Tap again to remove'; b._t = setTimeout(() => disarm(b, 'Remove page'), 3500); return; }
-  disarm(b, 'Remove page');
+  const k = activePage - FIXED.length;
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = `Tap again to remove entry ${Math.floor(k / 2) + 1}`; b._t = setTimeout(() => disarm(b, 'Remove entry'), 3500); return; }
+  disarm(b, 'Remove entry');
   if (!isEntry(activePage)) return;
-  S.entries.splice(activePage - FIXED.length, 1);
-  S.page = cur; save(); mount(cur); toast('Page removed');
+  S.entries.splice(k - (k % 2), 2);
+  S.page = cur; save(); mount(cur); toast('Entry removed');
 });
 document.addEventListener('keydown', e => {
   if (!$('#modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
