@@ -298,6 +298,44 @@ table.log td.t small { color: var(--ink-soft); }
 .tbr-rec { font-family: var(--hand); font-size: 18px; color: #24427a; line-height: 1.1; }
 .tbr-start { flex: none; border: 1px solid var(--rule); background: transparent; color: var(--ink); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
 .tbr-start:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+/* reading stats (paper stays light in both themes, so the light chart palette applies) */
+.stats { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --viz-muted: #b9b8b2; --viz-track: #ecebe5; }
+.stats .page-body { gap: 14px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile { border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; display: grid; }
+.tile b { font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+.viz { display: grid; gap: 8px; }
+.viz h3 { margin: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); font-weight: 700; }
+.viz-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hbars { display: grid; gap: 4px; }
+.hbar { display: grid; grid-template-columns: minmax(0, 9.5em) 1fr 2.2em; align-items: center; gap: 8px; font-size: 13px; padding: 2px 0; }
+.hbar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-track { height: 12px; }
+.hbar-track i { display: block; height: 100%; min-width: 4px; background: var(--series-1); border-radius: 0 4px 4px 0; }
+.hbar-track i.muted { background: var(--viz-muted); }
+.hbar-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+.stack { display: flex; gap: 2px; height: 16px; }
+.stack i { display: block; min-width: 4px; }
+.stack i:first-child { border-radius: 4px 0 0 4px; } .stack i:last-child { border-radius: 0 4px 4px 0; } .stack i:only-child { border-radius: 4px; }
+.seg-1 { background: var(--series-1); } .seg-2 { background: var(--series-2); } .seg-3 { background: var(--series-3); } .seg-0 { background: var(--viz-muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--ink); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.legend span.zero { color: var(--ink-soft); }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.metric { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; overflow: hidden; }
+.metric button { border: 0; background: transparent; padding: 3px 10px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.metric button.on { background: var(--ink); color: var(--paper); }
+.vbars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; height: 120px; border-bottom: 1px solid var(--ink-soft); }
+.vcol { display: grid; grid-template-rows: 14px 1fr 14px; text-align: center; min-width: 0; padding-inline: 2px; }
+.vcol:hover .vtrack i { filter: brightness(.88); }
+.vval { font-size: 10.5px; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vtrack { display: flex; align-items: flex-end; }
+.vtrack i { display: block; width: 100%; background: var(--series-1); border-radius: 4px 4px 0 0; }
+.vlab { font-size: 10px; color: var(--ink-soft); transform: translateY(16px); }
+.vbars { margin-bottom: 16px; }
+.viz-empty { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.viz-tip { position: absolute; z-index: 300; background: #1f2a33; color: #fff; font-size: 12.5px; padding: 5px 9px; border-radius: 6px; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 /* journal entry */
 .entry .page-body { padding: 18px 22px 46px 40px; gap: 6px; overflow: hidden; }
 .entry-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12px; color: var(--ink-soft); }
@@ -664,12 +702,12 @@ const Store = {
 };
 
 const SAMPLE_BOOKS = [
-  ['The Night Circus', 'Erin Morgenstern', 'Fantasy', 512, '-01-02', '-01-18', 5, '#2b2d42'],
-  ['Project Hail Mary', 'Andy Weir', 'Science fiction', 476, '-01-25', '-02-09', 5, '#c9732f'],
-  ['Tomorrow, and Tomorrow, and Tomorrow', 'Gabrielle Zevin', 'Literary fiction', 401, '-03-01', '-03-22', 4, '#3d7f8f'],
-  ['The Thursday Murder Club', 'Richard Osman', 'Mystery', 382, '-04-20', '-05-04', 4, '#8c2f39'],
-  ['Educated', 'Tara Westover', 'Memoir', 334, '-06-28', '-07-15', 5, '#6b7f3a'],
-].map(([title, author, genre, pages, s, e, rating, color]) => ({ id: uid(), title, author, genre, pages, start: THIS_YEAR + s, end: THIS_YEAR + e, rating, color, sample: true }));
+  ['The Night Circus', 'Erin Morgenstern', 'Fantasy', 512, '-01-02', '-01-18', 5, '#2b2d42', 'print', 11],
+  ['Project Hail Mary', 'Andy Weir', 'Science fiction', 476, '-01-25', '-02-09', 5, '#c9732f', 'audio', 16],
+  ['Tomorrow, and Tomorrow, and Tomorrow', 'Gabrielle Zevin', 'Literary fiction', 401, '-03-01', '-03-22', 4, '#3d7f8f', 'ebook', 9],
+  ['The Thursday Murder Club', 'Richard Osman', 'Mystery', 382, '-04-20', '-05-04', 4, '#8c2f39', 'print', 8.5],
+  ['Educated', 'Tara Westover', 'Memoir', 334, '-06-28', '-07-15', 5, '#6b7f3a', 'audio', 12],
+].map(([title, author, genre, pages, s, e, rating, color, medium, hours]) => ({ id: uid(), title, author, genre, pages, start: THIS_YEAR + s, end: THIS_YEAR + e, rating, color, medium, hours, sample: true }));
 
 const DEFAULT_STATE = () => ({
   v: 1,
@@ -695,9 +733,9 @@ function save(now) {
 }
 
 /* ---------------- page model ---------------- */
-const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr'];
+const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr', 'stats'];
 const pageCount = () => FIXED.length + S.entries.length;
-const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read'][i] : `Journal page ${i - FIXED.length + 1}`;
+const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read', 'Reading stats'][i] : `Journal page ${i - FIXED.length + 1}`;
 let cur = 0;
 let turning = false;
 
@@ -728,6 +766,7 @@ function renderPage(i, side = 'S') {
   else if (i === 2) leaf = renderShelf();
   else if (i === 3) leaf = renderLog();
   else if (i === 4) leaf = renderTbr();
+  else if (i === 5) leaf = renderStats();
   else leaf = renderEntry(i - FIXED.length);
   leaf.dataset.page = i;
   if (side === 'L') leaf.classList.add('side-left');
@@ -855,6 +894,84 @@ function renderLog() {
     h('button', { class: 'ink-btn', type: 'button', onclick: () => openBookForm(null, y) }, '+ Log a book')));
   return leaf;
 }
+
+/* ----- reading stats ----- */
+const MEDIUMS = [['print', 'Print'], ['ebook', 'Ebook'], ['audio', 'Audiobook']];
+const MONTH_METRICS = [['pages', 'Pages'], ['hours', 'Hours'], ['books', 'Books']];
+const fmtNum = n => Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+function hbars(items, total) {
+  const max = Math.max(1, ...items.map(i => i.n));
+  return h('div', { class: 'hbars' }, items.map(i => h('div', { class: 'hbar', 'data-tip': `${i.label}: ${i.n} book${i.n === 1 ? '' : 's'} (${Math.round(i.n / total * 100)}%)` },
+    h('span', { class: 'hbar-label' }, i.label),
+    h('span', { class: 'hbar-track' }, h('i', { class: i.muted ? 'muted' : '', style: { width: (i.n / max * 100) + '%' } })),
+    h('span', { class: 'hbar-val' }, i.n))));
+}
+function renderStats() {
+  const y = S.logYear;
+  const rows = S.books.filter(b => yearOf(b) === y);
+  const pages = rows.reduce((t, b) => t + (Number(b.pages) || 0), 0);
+  const hours = rows.reduce((t, b) => t + (Number(b.hours) || 0), 0);
+  const leaf = h('div', { class: 'leaf paper stats' });
+  const body = h('div', { class: 'page-body' },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
+      h('h2', { class: 'page-title' }, `${y} in Numbers`),
+      h('div', { class: 'year-nav' },
+        h('button', { type: 'button', 'aria-label': 'Previous year', onclick: () => { S.logYear--; save(); refresh(); } }, '‹'),
+        h('button', { type: 'button', 'aria-label': 'Next year', onclick: () => { S.logYear++; save(); refresh(); } }, '›'))),
+    h('div', { class: 'tiles' },
+      h('div', { class: 'tile' }, h('b', {}, rows.length), h('span', {}, rows.length === 1 ? 'book' : 'books')),
+      h('div', { class: 'tile' }, h('b', {}, fmtNum(pages)), h('span', {}, 'pages')),
+      h('div', { class: 'tile' }, h('b', {}, fmtNum(hours)), h('span', {}, 'hours read'))));
+  if (!rows.length) {
+    body.append(h('p', { class: 'log-empty' }, `Log a book for ${y} and your graphs show up here.`));
+    leaf.append(body); return leaf;
+  }
+  // By genre: one bar per genre, biggest first; beyond six fold into Other.
+  const g = {}; rows.forEach(b => { const k = b.genre || 'No genre'; g[k] = (g[k] || 0) + 1; });
+  let genres = Object.entries(g).map(([label, n]) => ({ label, n, muted: label === 'No genre' })).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  if (genres.length > 6) { const rest = genres.slice(5); genres = genres.slice(0, 5).concat({ label: `Other (${rest.length})`, n: rest.reduce((t, i) => t + i.n, 0), muted: true }); }
+  // Medium: one stacked bar, fixed colors per medium.
+  const med = MEDIUMS.map(([v, l], i) => ({ v, l, n: rows.filter(b => b.medium === v).length, slot: i + 1 }));
+  const unset = rows.filter(b => !MEDIUMS.some(([v]) => v === b.medium)).length;
+  if (unset) med.push({ v: '', l: 'Not set', n: unset, slot: 0 });
+  // By month: pages, hours or books finished.
+  const metric = S.statsMetric || 'pages';
+  const per = Array(12).fill(0);
+  rows.forEach(b => { const m = Number((b.end || '').slice(5, 7)); if (!m) return; per[m - 1] += metric === 'books' ? 1 : (Number(b[metric]) || 0); });
+  const maxM = Math.max(...per);
+  const unit = metric === 'pages' ? 'pages' : metric === 'hours' ? 'hours' : 'books';
+  const top = per.indexOf(maxM);
+  body.append(
+    h('section', { class: 'viz' }, h('h3', {}, 'By genre'), hbars(genres, rows.length)),
+    h('section', { class: 'viz' }, h('h3', {}, 'Medium'),
+      h('div', { class: 'stack', role: 'img', 'aria-label': med.filter(m => m.n).map(m => `${m.l} ${m.n}`).join(', ') },
+        med.filter(m => m.n).map(m => h('i', { class: 'seg-' + m.slot, style: { flexGrow: m.n }, 'data-tip': `${m.l}: ${m.n} book${m.n === 1 ? '' : 's'} (${Math.round(m.n / rows.length * 100)}%)` }))),
+      h('div', { class: 'legend' }, med.map(m => h('span', { class: m.n ? '' : 'zero' }, h('i', { class: 'seg-' + m.slot }), `${m.l} ${m.n}`)))),
+    h('section', { class: 'viz' },
+      h('div', { class: 'viz-head' }, h('h3', {}, 'By month'),
+        h('div', { class: 'metric', role: 'group', 'aria-label': 'Show by month' }, MONTH_METRICS.map(([v, l]) => h('button', { type: 'button', class: metric === v ? 'on' : '', 'aria-pressed': String(metric === v), onclick: () => { S.statsMetric = v; save(); refresh(); } }, l)))),
+      maxM ? h('div', { class: 'vbars' }, per.map((n, m) => {
+        const name = new Date(2000, m, 1).toLocaleString(undefined, { month: 'long' });
+        return h('div', { class: 'vcol', 'data-tip': `${name}: ${fmtNum(n)} ${unit}` },
+          h('span', { class: 'vval' }, m === top ? fmtNum(n) : ''),
+          h('span', { class: 'vtrack' }, h('i', { style: { height: (n / maxM * 100) + '%' } })),
+          h('span', { class: 'vlab' }, name.slice(0, 1)));
+      })) : h('p', { class: 'viz-empty' }, metric === 'hours' ? 'Add hours read to your books to see this graph.' : 'Add finish dates to your books to see this graph.')));
+  leaf.append(body);
+  return leaf;
+}
+// One tooltip for every graph on the page.
+const vizTip = h('div', { class: 'viz-tip', role: 'tooltip', hidden: true });
+document.body.append(vizTip);
+document.addEventListener('pointerover', e => {
+  const t = e.target.closest && e.target.closest('[data-tip]');
+  if (!t) { vizTip.hidden = true; return; }
+  vizTip.textContent = t.dataset.tip; vizTip.hidden = false;
+  const r = t.getBoundingClientRect();
+  const w = vizTip.offsetWidth;
+  vizTip.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + scrollX + 'px';
+  vizTip.style.top = (r.top + scrollY - vizTip.offsetHeight - 8) + 'px';
+});
 
 /* ----- to be read ----- */
 const REC_SOURCES = ['BookTok', 'Bookstagram', 'A friend', 'Family', 'Book club', 'Bookstore', 'Library', 'Goodreads', 'Podcast', 'YouTube', 'Newsletter', 'Award list'];
@@ -1325,6 +1442,9 @@ function openBookForm(b, year, prefill, onAdded) {
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Spine color' });
   const drawChips = () => { chips.innerHTML = ''; CLOTH.forEach(c => chips.append(h('button', { type: 'button', class: c === d.color ? 'on' : '', style: { background: c }, 'aria-label': 'Spine color ' + c, onclick: () => { d.color = c; drawChips(); } }))); };
   drawChips();
+  const mediumSeg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Medium' });
+  const drawMedium = () => { mediumSeg.innerHTML = ''; MEDIUMS.forEach(([v, l]) => mediumSeg.append(h('button', { type: 'button', class: d.medium === v ? 'on' : '', 'aria-pressed': String(d.medium === v), onclick: () => { d.medium = d.medium === v ? '' : v; drawMedium(); } }, l))); };
+  drawMedium();
   const dl = h('datalist', { id: 'genreList' }, GENRES.map(g => h('option', { value: g })));
   const err = h('p', { class: 'note', style: { margin: 0, color: 'var(--danger)', fontSize: '13px' } });
   const removeBtn = editing ? h('button', { type: 'button', class: 'btn danger left', onclick: e => {
@@ -1336,7 +1456,7 @@ function openBookForm(b, year, prefill, onAdded) {
   const form = h('form', { class: 'sheet', onsubmit: e => {
     e.preventDefault();
     if (!d.title.trim()) { err.textContent = 'Add a title so the book can go on your shelf.'; $('#bf-title').focus(); return; }
-    const clean = { ...d, title: d.title.trim(), author: (d.author || '').trim(), pages: d.pages ? Number(d.pages) : '', sample: editing ? b.sample : false };
+    const clean = { ...d, title: d.title.trim(), author: (d.author || '').trim(), pages: d.pages ? Number(d.pages) : '', hours: d.hours ? Number(d.hours) : '', sample: editing ? b.sample : false };
     if (!clean.end && !clean.start) clean.addedYear = year || THIS_YEAR;
     if (editing) Object.assign(b, clean, { sample: false }); else S.books.push({ id: uid(), ...clean });
     save(); closeModal(); refresh();
@@ -1356,6 +1476,8 @@ function openBookForm(b, year, prefill, onAdded) {
       field('Started', inp('start', { type: 'date' })),
       field('Finished', inp('end', { type: 'date' })),
       field('Pages', inp('pages', { type: 'number', min: 1, inputmode: 'numeric' })),
+      field('Hours read', inp('hours', { type: 'number', min: 0, step: 0.25, inputmode: 'decimal', placeholder: 'e.g. 9.5' })),
+      h('div', { class: 'f' }, 'Medium', mediumSeg),
       h('div', { class: 'f' }, 'Rating', stars),
       h('div', { class: 'f full' }, 'Spine color on your shelf', chips)),
     dl, err,
