@@ -743,9 +743,14 @@ function save(now) {
 }
 
 /* ---------------- page model ---------------- */
-const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr', 'stats', 'dnf'];
-const pageCount = () => FIXED.length + S.entries.length;
-const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read', 'Reading stats', 'The graveyard'][i] : `Journal page ${i - FIXED.length + 1}`;
+// Page order: front pages, then journal pages, then back pages.
+const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr'];
+const BACK = ['stats', 'dnf'];
+const backStart = () => FIXED.length + S.entries.length;
+const isEntry = i => i >= FIXED.length && i < backStart();
+const pageCount = () => backStart() + BACK.length;
+const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read'][i]
+  : i >= backStart() ? ['Reading stats', 'The graveyard'][i - backStart()] : `Journal page ${i - FIXED.length + 1}`;
 let cur = 0;
 let turning = false;
 
@@ -776,8 +781,8 @@ function renderPage(i, side = 'S') {
   else if (i === 2) leaf = renderShelf();
   else if (i === 3) leaf = renderLog();
   else if (i === 4) leaf = renderTbr();
-  else if (i === 5) leaf = renderStats();
-  else if (i === 6) leaf = renderGraveyard();
+  else if (i === backStart()) leaf = renderStats();
+  else if (i === backStart() + 1) leaf = renderGraveyard();
   else leaf = renderEntry(i - FIXED.length);
   leaf.dataset.page = i;
   if (side === 'L') leaf.classList.add('side-left');
@@ -785,8 +790,8 @@ function renderPage(i, side = 'S') {
   leaf.prepend(holes());
   if (i > 0 && side !== 'R') leaf.append(corner('prev', i === 1 ? 'Close the cover' : 'Back'));
   const last = i === pageCount() - 1;
-  if (side !== 'L') leaf.append(corner('next', i === 0 ? 'Open' : last ? 'Add pages' : 'Next page'));
-  if (i > 0) leaf.append(h('div', { class: 'folio' }, i < FIXED.length ? '' : String(i - FIXED.length + 1)));
+  if (side !== 'L' && !last) leaf.append(corner('next', i === 0 ? 'Open' : 'Next page'));
+  if (i > 0) leaf.append(h('div', { class: 'folio' }, isEntry(i) ? String(i - FIXED.length + 1) : ''));
   return leaf;
 }
 
@@ -1180,7 +1185,7 @@ function showDrop(canvas, on) {
 const FRAMES = ['tape', 'polaroid', 'plain'];
 let activePage = 0;
 function visiblePages(c = cur) { return !spread ? [c] : c === 0 ? [0] : [c, c + 1]; }
-function currentEntry() { return activePage >= FIXED.length && visiblePages().includes(activePage) ? S.entries[activePage - FIXED.length] : null; }
+function currentEntry() { return isEntry(activePage) && visiblePages().includes(activePage) ? S.entries[activePage - FIXED.length] : null; }
 function currentCanvas() { return $(`.leaf.current[data-page="${activePage}"] .canvas`, book); }
 function removeItem(el, s, entry) { entry.stickers = entry.stickers.filter(t => t !== s); el.remove(); restack(entry); save(); }
 function stickerEl(s, entry) {
@@ -1332,7 +1337,7 @@ function mount(c) {
   }
   $$('.leaf', book).forEach(l => l.classList.add('current'));
   const vis = visiblePages();
-  if (!vis.includes(activePage) || activePage < FIXED.length) activePage = vis.find(i => i >= FIXED.length) ?? cur;
+  if (!vis.includes(activePage) || !isEntry(activePage)) activePage = vis.find(isEntry) ?? cur;
   afterTurn();
 }
 function refresh() { if (!turning) mount(cur); }
@@ -1341,7 +1346,7 @@ function prev() { go(spread ? (cur <= 1 ? 0 : cur - 2) : cur - 1); }
 function go(target) {
   if (turning || target < 0) return;
   if (spread) target = spreadStart(target);
-  if (target >= pageCount()) { S.entries.push(blankEntry()); ensureFullSpreads(); save(); target = spread ? spreadStart(pageCount() - 1) : pageCount() - 1; }
+  if (target >= pageCount()) return;
   if (target === cur) return;
   if (cur === 0) S.opened = true;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1386,10 +1391,11 @@ wideMQ.addEventListener('change', () => { spread = wideMQ.matches; if (!turning)
 book.addEventListener('pointerdown', e => { const l = e.target.closest('.leaf.current'); if (l) activePage = Number(l.dataset.page); }, true);
 function afterTurn() {
   const vis = visiblePages();
-  const onEntry = vis.some(i => i >= FIXED.length);
+  const onEntry = vis.some(isEntry);
   $('#toolbar').hidden = !onEntry;
   $('#prevBtn').disabled = cur === 0;
-  $('#nextBtn').textContent = vis.includes(pageCount() - 1) ? '+ Pages ›' : cur === 0 ? 'Open ›' : 'Next ›';
+  $('#nextBtn').textContent = cur === 0 ? 'Open ›' : 'Next ›';
+  $('#nextBtn').disabled = vis.includes(pageCount() - 1);
   $('#addPageBtn').hidden = !onEntry;
   $('#delPageBtn').hidden = !onEntry || S.entries.length < 2;
   disarm($('#delPageBtn'), 'Remove page');
@@ -1401,7 +1407,7 @@ function afterTurn() {
   if (cur === 0 && c && !S.opened) c.classList.add('pulse');
 }
 function addEntry(after) {
-  const at = after && activePage >= FIXED.length ? activePage - FIXED.length + 1 : S.entries.length;
+  const at = after && isEntry(activePage) ? activePage - FIXED.length + 1 : S.entries.length;
   S.entries.splice(at, 0, blankEntry()); save();
   return at + FIXED.length;
 }
@@ -1414,7 +1420,7 @@ $('#delPageBtn').addEventListener('click', e => {
   const b = e.currentTarget;
   if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = spread ? `Tap again to remove page ${activePage - FIXED.length + 1}` : 'Tap again to remove'; b._t = setTimeout(() => disarm(b, 'Remove page'), 3500); return; }
   disarm(b, 'Remove page');
-  if (activePage < FIXED.length) return;
+  if (!isEntry(activePage)) return;
   S.entries.splice(activePage - FIXED.length, 1);
   S.page = cur; save(); mount(cur); toast('Page removed');
 });
