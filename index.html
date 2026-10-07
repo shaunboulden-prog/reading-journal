@@ -337,6 +337,9 @@ table.log td.t small { color: var(--ink-soft); }
 .viz-empty { margin: 0; font-size: 13px; color: var(--ink-soft); }
 .viz-tip { position: absolute; z-index: 300; background: #1f2a33; color: #fff; font-size: 12.5px; padding: 5px 9px; border-radius: 6px; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 /* graveyard */
+.dnf-stats { display: grid; gap: 14px; margin-top: 10px; padding-top: 14px; border-top: 1px dashed var(--rule); }
+.dnf-head { margin: 0; font-family: var(--display); font-weight: 400; font-size: 22px; }
+.dnf-stats .hbar { grid-template-columns: minmax(0, 11em) 1fr 2.2em; }
 .yard { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px 12px; align-items: end; padding: 4px 0 10px; border-bottom: 3px solid #8a9a6b; }
 .stone { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 150px; padding: 18px 10px 12px; border: 1px solid #a9a59b; border-bottom-width: 3px; border-radius: 60px 60px 4px 4px; background: linear-gradient(160deg, #e4e1da, #c9c5bb); color: #3a3833; text-align: center; box-shadow: inset 0 -6px 10px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.12); transition: transform .15s; }
 .stone:hover { transform: translateY(-2px); }
@@ -919,7 +922,7 @@ function hbars(items, total) {
   const max = Math.max(1, ...items.map(i => i.n));
   return h('div', { class: 'hbars' }, items.map(i => h('div', { class: 'hbar', 'data-tip': `${i.label}: ${i.n} book${i.n === 1 ? '' : 's'} (${Math.round(i.n / total * 100)}%)` },
     h('span', { class: 'hbar-label' }, i.label),
-    h('span', { class: 'hbar-track' }, h('i', { class: i.muted ? 'muted' : '', style: { width: (i.n / max * 100) + '%' } })),
+    h('span', { class: 'hbar-track' }, i.n ? h('i', { class: i.muted ? 'muted' : '', style: { width: (i.n / max * 100) + '%' } }) : null),
     h('span', { class: 'hbar-val' }, i.n))));
 }
 function renderStats() {
@@ -1058,8 +1061,36 @@ function openTbrForm(t) {
 /* ----- graveyard (did not finish) ----- */
 const DNF_REASONS = ['Too slow', 'Lost interest', 'Not for me', "Didn't like the writing", "Couldn't connect with the characters", 'Too dark', "The hype didn't hold up", 'Wrong time for it', 'Too confusing', 'Got a better book'];
 const fmtFullDate = iso => { if (!iso) return ''; const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); };
+// Counts by key, biggest first; beyond six fold into Other.
+function tally(list, key, none) {
+  const g = {}; list.forEach(b => { const k = key(b) || none; g[k] = (g[k] || 0) + 1; });
+  let items = Object.entries(g).map(([label, n]) => ({ label, n, muted: label === none })).sort((a, b) => a.muted - b.muted || b.n - a.n || a.label.localeCompare(b.label));
+  if (items.length > 6) { const rest = items.slice(5); items = items.slice(0, 5).concat({ label: `Other (${rest.length})`, n: rest.reduce((t, i) => t + i.n, 0), muted: true }); }
+  return items;
+}
+function graveyardStats() {
+  const list = S.dnf;
+  const pagesRead = list.reduce((t, b) => t + (Number(b.stoppedAt) || 0), 0);
+  const known = list.filter(b => Number(b.stoppedAt) >= 0 && Number(b.pages) > 0 && b.stoppedAt !== '');
+  const pct = b => Math.min(100, Number(b.stoppedAt) / Number(b.pages) * 100);
+  const avg = known.length ? Math.round(known.reduce((t, b) => t + pct(b), 0) / known.length) : null;
+  // How far in: ordered buckets, so they keep their order instead of sorting by size.
+  const BUCKETS = [['Under 25%', 0, 25], ['25–50%', 25, 50], ['50–75%', 50, 75], ['75% or more', 75, 101]];
+  const far = BUCKETS.map(([label, lo, hi]) => ({ label, n: known.filter(b => pct(b) >= lo && pct(b) < hi).length }));
+  const unknown = list.length - known.length;
+  if (unknown) far.push({ label: 'Not sure', n: unknown, muted: true });
+  return h('div', { class: 'dnf-stats' },
+    h('h3', { class: 'dnf-head' }, 'Graveyard stats'),
+    h('div', { class: 'tiles' },
+      h('div', { class: 'tile' }, h('b', {}, list.length), h('span', {}, list.length === 1 ? 'book' : 'books')),
+      h('div', { class: 'tile' }, h('b', {}, fmtNum(pagesRead)), h('span', {}, 'pages read anyway')),
+      h('div', { class: 'tile' }, h('b', {}, avg == null ? '–' : avg + '%'), h('span', {}, 'avg. read'))),
+    h('section', { class: 'viz' }, h('h3', {}, 'Why I stopped'), hbars(tally(list, b => b.reason, 'No reason given'), list.length)),
+    h('section', { class: 'viz' }, h('h3', {}, 'How far I got'), hbars(far, list.length)),
+    h('section', { class: 'viz' }, h('h3', {}, 'By genre'), hbars(tally(list, b => b.genre, 'No genre'), list.length)));
+}
 function renderGraveyard() {
-  const leaf = h('div', { class: 'leaf paper' });
+  const leaf = h('div', { class: 'leaf paper stats' });
   const yard = h('div', { class: 'yard' });
   [...S.dnf].sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(t => {
     const where = t.stoppedAt ? (t.pages ? `Stopped on p. ${t.stoppedAt} of ${t.pages}` : `Stopped on p. ${t.stoppedAt}`) : '';
@@ -1075,7 +1106,8 @@ function renderGraveyard() {
     h('h2', { class: 'page-title' }, 'The Graveyard'),
     h('p', { class: 'page-sub' }, S.dnf.length ? (S.dnf.length === 1 ? '1 book laid to rest' : `${S.dnf.length} books laid to rest`) : 'No books buried yet'),
     S.dnf.length ? yard : h('p', { class: 'log-empty' }, 'Books you didn’t finish rest here. No guilt allowed.'),
-    h('button', { class: 'ink-btn', type: 'button', onclick: () => openDnfForm() }, '+ Bury a book')));
+    h('button', { class: 'ink-btn', type: 'button', onclick: () => openDnfForm() }, '+ Bury a book'),
+    S.dnf.length ? graveyardStats() : null));
   return leaf;
 }
 // prefill: carry a book over from the shelf or TBR; onBuried runs after it's saved so the caller can remove the original
