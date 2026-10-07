@@ -284,6 +284,26 @@ table.log tbody tr { cursor: pointer; }
 table.log tbody tr:hover td { background: color-mix(in srgb, var(--rule) 30%, transparent); }
 table.log td.t b { display: block; font-weight: 600; }
 table.log td.t small { color: var(--ink-soft); }
+/* two-page log: fixed header and row heights keep rows level across the spine */
+.log-head { height: 104px; display: grid; align-content: start; gap: 10px; flex-shrink: 0; }
+.log-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; height: 36px; }
+.log-page .months div { height: 46px; }
+table.log.split { table-layout: fixed; min-width: 0; }
+table.log.split th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 26px; box-sizing: border-box; }
+table.log.split tbody tr { height: 52px; }
+table.log.split td { vertical-align: middle; padding: 0 6px; height: 52px; box-sizing: border-box; }
+table.log.split td.clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.log.split .tcell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+table.log.split td.t .thumb { float: none; margin: 0; width: 26px; height: 39px; flex: none; }
+table.log.split .tt { min-width: 0; display: grid; }
+table.log.split .tt b, table.log.split .tt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.log.split .spice { margin-top: 1px; }
+.log-cards { list-style: none; margin: 0; padding: 0; border-top: 1.5px solid var(--ink); }
+.log-cards li { display: grid; gap: 2px; padding: 8px 4px; border-bottom: 1px solid var(--rule); cursor: pointer; font-size: 13px; }
+.log-cards b { font-weight: 600; }
+.log-meta { color: var(--ink-soft); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.log-rate { display: flex; gap: 8px; align-items: center; }
+.log-rate .spice { display: inline; }
 .stars { color: #c08a1e; letter-spacing: 1px; white-space: nowrap; }
 .log-empty { font-family: var(--hand); font-size: 22px; color: var(--ink-soft); text-align: center; padding: 18px 0; }
 
@@ -751,12 +771,12 @@ function save(now) {
 
 /* ---------------- page model ---------------- */
 // Page order: front pages, then journal pages, then back pages.
-const FIXED = ['cover', 'owner', 'shelf', 'log', 'tbr'];
+const FIXED = ['cover', 'owner', 'shelf', 'log', 'log2', 'tbr'];
 const BACK = ['stats', 'dnf'];
 const backStart = () => FIXED.length + S.entries.length;
 const isEntry = i => i >= FIXED.length && i < backStart();
 const pageCount = () => backStart() + BACK.length;
-const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'To be read'][i]
+const pageName = i => i < FIXED.length ? ['Front cover', 'This book belongs to', 'Bookshelf', 'Reading log', 'Reading log, continued', 'To be read'][i]
   : i >= backStart() ? ['Reading stats', 'The graveyard'][i - backStart()] : `Journal page ${i - FIXED.length + 1}`;
 let cur = 0;
 let turning = false;
@@ -786,8 +806,9 @@ function renderPage(i, side = 'S') {
   if (i === 0) leaf = renderCover();
   else if (i === 1) leaf = renderOwner();
   else if (i === 2) leaf = renderShelf();
-  else if (i === 3) leaf = renderLog();
-  else if (i === 4) leaf = renderTbr();
+  else if (i === 3) leaf = renderLog('L');
+  else if (i === 4) leaf = renderLog('R');
+  else if (i === 5) leaf = renderTbr();
   else if (i === backStart()) leaf = renderStats();
   else if (i === backStart() + 1) leaf = renderGraveyard();
   else leaf = renderEntry(i - FIXED.length);
@@ -878,46 +899,69 @@ function renderShelf() {
 /* ----- log ----- */
 const yearOf = b => Number((b.end || b.start || '').slice(0, 4)) || b.addedYear || THIS_YEAR;
 const starStr = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '';
-function renderLog() {
+// The log spans two facing pages: who and what on the left, dates and ratings on the right.
+// Rows have a fixed height so each book lines up across the spine.
+function renderLog(part) {
   const y = S.logYear;
   const rows = sortedBooks().filter(b => yearOf(b) === y);
   const goal = Number(S.owner.goal) || 0;
   const pages = rows.reduce((t, b) => t + (Number(b.pages) || 0), 0);
-  const perMonth = Array(12).fill(0);
-  rows.forEach(b => { const m = Number((b.end || '').slice(5, 7)); if (m) perMonth[m - 1]++; });
-  const maxM = Math.max(1, ...perMonth);
-  const leaf = h('div', { class: 'leaf paper' });
-  const tbody = h('tbody');
-  rows.forEach((b, i) => tbody.append(h('tr', { tabindex: 0, onclick: () => openBookForm(b), onkeydown: e => { if (e.key === 'Enter') openBookForm(b); } },
-    h('td', {}, i + 1),
-    h('td', { class: 't' }, b.cover ? h('img', { class: 'thumb', src: b.cover, alt: '', onerror: e => e.target.remove() }) : null, h('b', {}, b.title), b.author ? h('small', {}, b.author) : null),
-    h('td', {}, b.genre || ''),
-    h('td', {}, b.pages || ''),
-    h('td', {}, fmtDate(b.end)),
-    h('td', {}, h('span', { class: 'stars', 'aria-label': b.rating ? `${b.rating} of 5 stars` : 'Not rated' }, starStr(b.rating)),
-      b.spice ? h('span', { class: 'spice', 'aria-label': `Spice ${b.spice} of 5` }, '🌶️'.repeat(b.spice)) : null))));
-  leaf.append(h('div', { class: 'page-body' },
-    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
-      h('h2', { class: 'page-title' }, `${y} Reading Log`),
-      h('div', { class: 'year-nav' },
-        h('button', { type: 'button', 'aria-label': 'Previous year', onclick: () => { S.logYear--; save(); refresh(); } }, '‹'),
-        h('button', { type: 'button', 'aria-label': 'Next year', onclick: () => { S.logYear++; save(); refresh(); } }, '›'))),
-    h('div', { class: 'goal' },
-      h('div', { class: 'goal-top' },
-        h('span', {}, h('b', {}, rows.length), goal ? ` of ${goal} books` : ' books', (goal && y === THIS_YEAR) ? ' this year' : ''),
-        h('span', {}, `${pages.toLocaleString()} pages`)),
-      goal ? h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': goal, 'aria-valuenow': rows.length }, h('i', { style: { width: Math.min(100, rows.length / goal * 100) + '%' } })) : null),
-    h('div', { class: 'months', 'aria-label': 'Books finished per month' },
-      perMonth.map((n, m) => h('div', { title: `${n} in ${new Date(2000, m, 1).toLocaleString(undefined, { month: 'long' })}` },
-        h('span', { class: 'col', style: { height: Math.round(n / maxM * 36) + 'px' } }),
-        new Date(2000, m, 1).toLocaleString(undefined, { month: 'narrow' })))),
-    sampleNote(),
-    rows.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'log' },
-      h('thead', {}, h('tr', {}, ['#', 'Title', 'Genre', 'Pages', 'Finished', 'Rating'].map(t => h('th', {}, t)))), tbody))
-      : h('div', { class: 'log-empty' }, `No books logged for ${y} yet.`),
-    h('button', { class: 'ink-btn', type: 'button', onclick: () => openBookForm(null, y) }, '+ Log a book')));
+  const leaf = h('div', { class: 'leaf paper log-page' });
+  const open = b => ({ tabindex: 0, onclick: () => openBookForm(b), onkeydown: e => { if (e.key === 'Enter') openBookForm(b); } });
+  const nameCell = b => h('td', { class: 't' }, h('div', { class: 'tcell' }, b.cover ? h('img', { class: 'thumb', src: b.cover, alt: '', onerror: e => e.target.remove() }) : null,
+    h('span', { class: 'tt' }, h('b', {}, b.title), b.author ? h('small', {}, b.author) : null)));
+  const medium = b => (MEDIUMS.find(([v]) => v === b.medium) || [])[1] || '';
+  const table = (cols, cells) => h('div', { class: 'table-wrap' }, h('table', { class: 'log split' },
+    h('colgroup', {}, cols.map(([, w]) => h('col', { style: w ? { width: w } : {} }))),
+    h('thead', {}, h('tr', {}, cols.map(([t]) => h('th', {}, t)))),
+    h('tbody', {}, rows.map((b, i) => h('tr', open(b), cells(b, i))))));
+  let head, body;
+  if (part !== 'R') {
+    head = [
+      h('div', { class: 'log-title' },
+        h('h2', { class: 'page-title' }, `${y} Reading Log`),
+        h('div', { class: 'year-nav' },
+          h('button', { type: 'button', 'aria-label': 'Previous year', onclick: () => { S.logYear--; save(); refresh(); } }, '‹'),
+          h('button', { type: 'button', 'aria-label': 'Next year', onclick: () => { S.logYear++; save(); refresh(); } }, '›'))),
+      h('div', { class: 'goal' },
+        h('div', { class: 'goal-top' },
+          h('span', {}, h('b', {}, rows.length), goal ? ` of ${goal} books` : ' books', (goal && y === THIS_YEAR) ? ' this year' : ''),
+          h('span', {}, `${pages.toLocaleString()} pages`)),
+        goal ? h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': goal, 'aria-valuenow': rows.length }, h('i', { style: { width: Math.min(100, rows.length / goal * 100) + '%' } })) : null)];
+    body = rows.length ? table([['#', '28px'], ['Title'], ['Genre', '27%'], ['Medium', '22%']],
+      (b, i) => [h('td', {}, i + 1), nameCell(b), h('td', { class: 'clip' }, b.genre || ''), h('td', { class: 'clip' }, medium(b))])
+      : h('div', { class: 'log-empty' }, `No books logged for ${y} yet.`);
+  } else {
+    const perMonth = Array(12).fill(0);
+    rows.forEach(b => { const m = Number((b.end || '').slice(5, 7)); if (m) perMonth[m - 1]++; });
+    const maxM = Math.max(1, ...perMonth);
+    head = [
+      h('div', { class: 'log-title' }, h('h2', { class: 'page-title' }, 'Books by month')),
+      h('div', { class: 'months', 'aria-label': 'Books finished per month' },
+        perMonth.map((n, m) => h('div', { title: `${n} in ${new Date(2000, m, 1).toLocaleString(undefined, { month: 'long' })}` },
+          h('span', { class: 'col', style: { height: Math.round(n / maxM * 30) + 'px' } }),
+          new Date(2000, m, 1).toLocaleString(undefined, { month: 'narrow' }))))];
+    const rating = b => [h('span', { class: 'stars', 'aria-label': b.rating ? `${b.rating} of 5 stars` : 'Not rated' }, starStr(b.rating)),
+      b.spice ? h('span', { class: 'spice', 'aria-label': `Spice ${b.spice} of 5` }, '🌶️'.repeat(b.spice)) : null];
+    // On a phone the pages aren't side by side, so each book gets its own line with its title.
+    body = !rows.length ? null : spread ? table([['Started', '18%'], ['Finished', '18%'], ['Pages', '13%'], ['Hours', '13%'], ['Rating']],
+      b => [h('td', {}, fmtDate(b.start)), h('td', {}, fmtDate(b.end)), h('td', {}, b.pages || ''), h('td', {}, b.hours ? fmtNum(Number(b.hours)) : ''), h('td', {}, rating(b))])
+      : h('ol', { class: 'log-cards' }, rows.map(b => h('li', open(b),
+        h('b', {}, b.title),
+        h('span', { class: 'log-meta' }, [b.start || b.end ? [fmtDate(b.start), fmtDate(b.end)].filter(Boolean).join(' – ') : '', b.pages ? `${b.pages} pages` : '', b.hours ? `${fmtNum(Number(b.hours))} hrs` : ''].filter(Boolean).join(' · ')),
+        h('span', { class: 'log-rate' }, rating(b)))));
+  }
+  leaf.append(h('div', { class: 'page-body' }, h('div', { class: 'log-head' }, head), body,
+    part !== 'R' ? sampleNote() : null,
+    part !== 'R' ? h('button', { class: 'ink-btn', type: 'button', onclick: () => openBookForm(null, y) }, '+ Log a book') : null));
   return leaf;
 }
+// Keep the two log pages scrolled together so rows stay lined up.
+document.addEventListener('scroll', e => {
+  const pb = e.target;
+  if (!pb.classList || !pb.classList.contains('page-body') || !pb.closest('.log-page')) return;
+  $$('.log-page .page-body', book).forEach(o => { if (o !== pb && o.scrollTop !== pb.scrollTop) o.scrollTop = pb.scrollTop; });
+}, true);
 
 /* ----- reading stats ----- */
 const MEDIUMS = [['print', 'Print'], ['ebook', 'Ebook'], ['audio', 'Audiobook']];
@@ -1437,7 +1481,7 @@ function afterTurn() {
   $('#delPageBtn').hidden = !onEntry || S.entries.length < 2;
   disarm($('#delPageBtn'), 'Remove page');
   const j = $('#jump'); j.innerHTML = '';
-  for (let i = 0; i < pageCount(); i++) if (!spread || i === spreadStart(i)) j.append(h('option', { value: i }, spread && i > 0 ? `${pageName(i)} & ${pageName(i + 1)}`.replace(/Journal page (\d+) & Journal page /, 'Journal pages $1–') : pageName(i)));
+  for (let i = 0; i < pageCount(); i++) if (!spread || i === spreadStart(i)) j.append(h('option', { value: i }, spread && i > 0 ? `${pageName(i)} & ${pageName(i + 1)}`.replace(/Journal page (\d+) & Journal page /, 'Journal pages $1–').replace('Reading log & Reading log, continued', 'Reading log') : pageName(i)));
   j.value = cur;
   updateLayerButtons();
   const c = $('.leaf.current .corner.next', book);
