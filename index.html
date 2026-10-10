@@ -538,7 +538,7 @@ table.log td.t small { color: var(--ink-soft); }
   <h3>Book covers</h3>
   <div class="search">
     <label class="vh" for="cq">Search Google Books for a cover</label>
-    <input type="search" id="cq" placeholder="Title or author" autocomplete="off">
+    <input type="search" id="cq" placeholder="Title, author or ISBN" autocomplete="off">
     <button class="btn" id="cqBtn" type="button">Find</button>
   </div>
   <p class="finder-msg" id="coverMsg" role="status"></p>
@@ -1024,7 +1024,7 @@ function renderTbr() {
   return leaf;
 }
 function startTbr(t) {
-  openBookForm(null, THIS_YEAR, { title: t.title, author: t.author || '', cover: t.cover || '', genre: t.genre || '', pages: t.pages || '', start: todayISO(), end: '' }, () => {
+  openBookForm(null, THIS_YEAR, { title: t.title, author: t.author || '', cover: t.cover || '', genre: t.genre || '', pages: t.pages || '', isbn: t.isbn || '', start: todayISO(), end: '' }, () => {
     S.tbr = S.tbr.filter(x => x !== t); save(); refresh(); toast(`“${t.title}” moved to your reading log`);
   });
 }
@@ -1053,7 +1053,7 @@ function openTbrForm(t) {
     editing ? null : bookFinder(b => {
       const set = (k, v) => { if (v == null || v === '') return; d[k] = String(v); const el = $('#tf-' + k); if (el) { el.value = v; const f = el.closest('.f'); f.classList.add('filled'); setTimeout(() => f.classList.remove('filled'), 1500); } };
       set('title', b.title); set('author', b.author);
-      d.cover = b.cover || ''; d.genre = b.genre || ''; d.pages = b.pages || '';
+      d.cover = b.cover || ''; d.genre = b.genre || ''; d.pages = b.pages || ''; d.isbn = b.isbn || '';
       err.textContent = '';
       setTimeout(() => $('#tf-source').focus(), 0);
     }),
@@ -1516,25 +1516,30 @@ function pickGenre(raw) {
 // Google Books needs an API key from Google Cloud (Books API enabled). Paste it here once the site is hosted on its own domain.
 const GOOGLE_BOOKS_KEY = 'AIzaSyC-Lx4Dpuq5hMqG9nrpO9Ouf7GrYk73p3k';
 const httpsUrl = u => u ? String(u).replace(/^http:/, 'https:').replace('&edge=curl', '') : '';
+// An ISBN-10 or ISBN-13 typed with or without dashes and spaces, or null if the text isn't one.
+const isbnOf = q => { const t = String(q).replace(/[\s-]/g, '').toUpperCase(); return /^(97[89]\d{10}|\d{9}[\dX])$/.test(t) ? t : null; };
 async function googleBooks(q, max = 6, start = 0) {
+  const isbn = isbnOf(q); if (isbn) q = 'isbn:' + isbn;
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
   try {
-    const url = 'https://www.googleapis.com/books/v1/volumes?printType=books&country=US&fields=items(volumeInfo(title,authors,pageCount,categories,publishedDate,imageLinks))&maxResults=' + max + (start ? '&startIndex=' + start : '') + '&q=' + encodeURIComponent(q) + (GOOGLE_BOOKS_KEY ? '&key=' + encodeURIComponent(GOOGLE_BOOKS_KEY) : '');
+    const url = 'https://www.googleapis.com/books/v1/volumes?printType=books&country=US&fields=items(volumeInfo(title,authors,pageCount,categories,publishedDate,imageLinks,industryIdentifiers))&maxResults=' + max + (start ? '&startIndex=' + start : '') + '&q=' + encodeURIComponent(q) + (GOOGLE_BOOKS_KEY ? '&key=' + encodeURIComponent(GOOGLE_BOOKS_KEY) : '');
     const r = await fetch(url, { signal: ctl.signal, referrerPolicy: 'no-referrer-when-downgrade' }); // full page address, so a key restricted to this site's path is accepted
     if (!r.ok) return null;
     const j = await r.json();
     return (j.items || []).map(it => { const v = it.volumeInfo || {}; const img = v.imageLinks || {};
-      return { title: v.title, author: (v.authors || [])[0] || '', pages: v.pageCount || null, genre: /^(fiction|general|nonfiction)$/i.test(((v.categories || [])[0] || '').trim()) ? '' : pickGenre((v.categories || [])[0] || ''), year: Number(String(v.publishedDate || '').slice(0, 4)) || null, cover: httpsUrl(img.thumbnail || img.smallThumbnail) }; })
+      const ids = v.industryIdentifiers || []; const id = ids.find(x => x.type === 'ISBN_13') || ids.find(x => x.type === 'ISBN_10');
+      return { isbn: id ? id.identifier : isbn || '', title: v.title, author: (v.authors || [])[0] || '', pages: v.pageCount || null, genre: /^(fiction|general|nonfiction)$/i.test(((v.categories || [])[0] || '').trim()) ? '' : pickGenre((v.categories || [])[0] || ''), year: Number(String(v.publishedDate || '').slice(0, 4)) || null, cover: httpsUrl(img.thumbnail || img.smallThumbnail) }; })
       .filter(b => b.title);
   } catch (e) { return null; } finally { clearTimeout(t); }
 }
 async function lookupOpenLibrary(q) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+  const isbn = isbnOf(q);
   try {
-    const r = await fetch('https://openlibrary.org/search.json?limit=6&fields=title,author_name,number_of_pages_median,subject,first_publish_year&q=' + encodeURIComponent(q), { signal: ctl.signal });
+    const r = await fetch('https://openlibrary.org/search.json?limit=6&fields=title,author_name,number_of_pages_median,subject,first_publish_year,cover_i' + (isbn ? '&isbn=' + isbn : '&q=' + encodeURIComponent(q)), { signal: ctl.signal });
     if (!r.ok) return null;
     const j = await r.json();
-    return (j.docs || []).map(d => ({ title: d.title, author: (d.author_name || [])[0] || '', pages: d.number_of_pages_median || null, genre: pickGenre((d.subject || []).find(x => pickGenre(x) && GENRES.includes(pickGenre(x))) || ''), year: d.first_publish_year || null }));
+    return (j.docs || []).map(d => ({ isbn: isbn || '', cover: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : '', title: d.title, author: (d.author_name || [])[0] || '', pages: d.number_of_pages_median || null, genre: pickGenre((d.subject || []).find(x => pickGenre(x) && GENRES.includes(pickGenre(x))) || ''), year: d.first_publish_year || null }));
   } catch (e) { return null; } finally { clearTimeout(t); }
 }
 async function lookupClaude(q) {
@@ -1549,7 +1554,7 @@ Use null for anything you are not confident about. If nothing matches, reply [].
   return list.filter(b => b && b.title).slice(0, 5).map(b => ({ title: String(b.title), author: b.author ? String(b.author) : '', pages: Number(b.pages) > 0 ? Math.round(Number(b.pages)) : null, genre: pickGenre(b.genre), year: Number(b.year) || null }));
 }
 function bookFinder(onPick) {
-  const input = h('input', { type: 'search', id: 'bf-find', placeholder: 'Search by title or author', autocomplete: 'off', 'aria-label': 'Search for a book' });
+  const input = h('input', { type: 'search', id: 'bf-find', placeholder: 'Title, author or ISBN', autocomplete: 'off', 'aria-label': 'Search for a book' });
   const btn = h('button', { type: 'button', class: 'btn' }, 'Find');
   const msg = h('p', { class: 'finder-msg', role: 'status' }, 'Search for a book and pick it to fill in the details.');
   const list = h('div', { class: 'finder-list' });
@@ -1571,7 +1576,7 @@ function bookFinder(onPick) {
     }
     busy = false; btn.disabled = false;
     if (!hits) return;
-    if (!hits.length) { msg.textContent = `No books found for “${q}”. Try the title and author together.`; return; }
+    if (!hits.length) { msg.textContent = isbnOf(q) ? `No book found for ISBN ${q}. Check the number, or search by title.` : `No books found for “${q}”. Try the title and author together.`; return; }
     msg.textContent = 'Pick the right one:';
     hits.forEach(b => list.append(h('button', { type: 'button', class: 'finder-hit', onclick: () => { onPick(b); list.innerHTML = ''; msg.textContent = `Filled in “${b.title}”. Check the details, add your dates and rating, then save.`; } },
       h('b', {}, b.cover ? h('img', { class: 'thumb', src: b.cover, alt: '', onerror: e => e.target.remove() }) : null, b.title),
@@ -1624,7 +1629,7 @@ function openBookForm(b, year, prefill, onAdded) {
     h('h2', {}, editing ? 'Edit book' : 'Add a book'),
     editing || prefill ? null : bookFinder(b => {
       const set = (k, v) => { if (v == null || v === '') return; d[k] = String(v); const el = $('#bf-' + k); if (el) { el.value = v; const f = el.closest('.f'); f.classList.add('filled'); setTimeout(() => f.classList.remove('filled'), 1500); } };
-      set('title', b.title); set('author', b.author); set('genre', b.genre); set('pages', b.pages);
+      set('title', b.title); set('author', b.author); set('genre', b.genre); set('pages', b.pages); set('isbn', b.isbn);
       d.cover = b.cover || '';
       err.textContent = '';
     }),
@@ -1639,6 +1644,7 @@ function openBookForm(b, year, prefill, onAdded) {
       h('div', { class: 'f' }, 'Medium', mediumSeg),
       h('div', { class: 'f' }, 'Rating', stars),
       h('div', { class: 'f' }, 'Spice', spice),
+      field('ISBN', inp('isbn', { autocomplete: 'off', inputmode: 'numeric', placeholder: 'Optional' })),
       h('div', { class: 'f full' }, 'Spine color on your shelf', chips)),
     dl, err,
     h('div', { class: 'sheet-actions' }, removeBtn, dnfBtn,
@@ -1838,10 +1844,14 @@ const cq = $('#cq'), coverHits = $('#coverHits'), coverMsg = $('#coverMsg');
 async function openLibraryCovers(q, page) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 10000);
   try {
-    const r = await fetch('https://openlibrary.org/search.json?limit=20&page=' + page + '&fields=title,cover_i&q=' + encodeURIComponent(q), { signal: ctl.signal });
+    const isbn = isbnOf(q);
+    const r = await fetch('https://openlibrary.org/search.json?limit=20&page=' + page + '&fields=title,cover_i' + (isbn ? '&isbn=' + isbn : '&q=' + encodeURIComponent(q)), { signal: ctl.signal });
     if (!r.ok) return null;
     const j = await r.json();
-    return (j.docs || []).filter(d => d.cover_i).map(d => ({ title: d.title, cover: `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` }));
+    const hits = (j.docs || []).filter(d => d.cover_i).map(d => ({ title: d.title, cover: `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` }));
+    // Open Library also serves a cover straight from the ISBN; default=false makes it fail (and drop out) when there isn't one.
+    if (isbn && page === 1) hits.unshift({ title: 'ISBN ' + isbn, cover: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` });
+    return hits;
   } catch (e) { return null; } finally { clearTimeout(t); }
 }
 const COVER_PAGE = 20;
