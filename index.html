@@ -433,6 +433,9 @@ table.log td.t small { color: var(--ink-soft); }
 .cover-hits:empty { display: none; }
 .cover-hits.pic-hits img { aspect-ratio: 1; }
 .pic-hits { max-height: 300px; overflow-y: auto; }
+.src-seg button { padding: 4px 12px; font-size: 12.5px; }
+.cover-hits.stk-hits img { aspect-ratio: 1; object-fit: contain; background: repeating-conic-gradient(var(--chrome-line) 0 25%, transparent 0 50%) 0 0 / 12px 12px; }
+.sticker.f-none img { box-shadow: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.18)); }
 #coverHits { max-height: 320px; overflow-y: auto; }
 .more-btn { justify-self: center; width: 100%; }
 .credit { margin: 0; font-size: 12px; color: var(--desk-muted); }
@@ -499,6 +502,7 @@ table.log td.t small { color: var(--ink-soft); }
     <div class="tgroup">
       <button class="tb" id="imgBtn" type="button" title="Find a book cover on Google Books"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></svg>Book covers</button>
       <button class="tb" id="gImgBtn" type="button" title="Find pictures for this page"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>Pictures</button>
+      <button class="tb" id="stkBtn" type="button" title="Find stickers for this page"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6z"/><path d="M12 20v-4a4 4 0 0 1 4-4h4"/></svg>Stickers</button>
     </div>
     <div class="tgroup" role="group" aria-label="Layer">
       <span class="tlabel">Layer</span>
@@ -544,8 +548,23 @@ table.log td.t small { color: var(--ink-soft); }
   <p class="finder-msg" id="coverMsg" role="status"></p>
   <div class="cover-hits" id="coverHits"></div>
 </div>
+<div class="pop img-pop" id="sPop" hidden>
+  <h3>Stickers</h3>
+  <div class="search">
+    <label class="vh" for="sq">Search for stickers</label>
+    <input type="search" id="sq" placeholder="Books, coffee, hearts…" autocomplete="off">
+    <button class="btn" id="sqBtn" type="button">Find</button>
+  </div>
+  <p class="finder-msg" id="stkMsg" role="status"></p>
+  <div class="cover-hits pic-hits stk-hits" id="stkHits"></div>
+  <p class="credit">Stickers powered by <a href="https://giphy.com/" target="_blank" rel="noopener">GIPHY</a></p>
+</div>
 <div class="pop img-pop" id="gPop" hidden>
   <h3>Pictures</h3>
+  <div class="seg src-seg" id="picSrc" role="group" aria-label="Where to search">
+    <button type="button" data-src="pixabay">Pixabay</button>
+    <button type="button" data-src="openverse">Openverse</button>
+  </div>
   <div class="search">
     <label class="vh" for="gq">Search for pictures</label>
     <input type="search" id="gq" placeholder="Characters, places, a mood…" autocomplete="off">
@@ -553,7 +572,7 @@ table.log td.t small { color: var(--ink-soft); }
   </div>
   <p class="finder-msg" id="picMsg" role="status"></p>
   <div class="cover-hits pic-hits" id="picHits"></div>
-  <p class="credit" id="picCredit" hidden>Pictures from <a href="https://pixabay.com/" target="_blank" rel="noopener">Pixabay</a></p>
+  <p class="credit" id="picCredit" hidden></p>
   <div class="paste-zone" id="pasteZone" contenteditable="true" data-hint="Or paste a picture you copied: click here, then Ctrl+V (⌘V on a Mac)" aria-label="Paste a picture here"></div>
   <p class="note" id="imgNote" role="status"></p>
   <label class="btn ghost" for="imgFile">Upload from this device</label>
@@ -1228,7 +1247,7 @@ function showDrop(canvas, on) {
 }
 
 /* stickers (pictures on a page) */
-const FRAMES = ['tape', 'polaroid', 'plain'];
+const FRAMES = ['tape', 'polaroid', 'plain', 'none'];
 let activePage = 0;
 function visiblePages(c = cur) { return !spread ? [c] : c === 0 ? [0] : [c, c + 1]; }
 function currentEntry() { return isEntry(activePage) && visiblePages().includes(activePage) ? S.entries[activePage - FIXED.length] : null; }
@@ -1831,11 +1850,11 @@ $('#colorBtn').addEventListener('click', e => openPop($('#colorPop'), e.currentT
 $('#hlBtn').addEventListener('click', e => openPop($('#hlPop'), e.currentTarget));
 
 // pictures
-function addImageUrl(src) {
+function addImageUrl(src, opts = {}) {
   const entry = currentEntry(); const canvas = currentCanvas();
   if (!entry || !canvas) return;
-  const w = 26;
-  const s = { id: uid(), src, x: 37 + (entry.stickers.length % 3) * 5, y: 20 + (entry.stickers.length % 3) * 5, w, rot: [-3, 2, -1, 3][entry.stickers.length % 4], frame: 'plain', z: 3 + entry.stickers.length };
+  const w = opts.w || 26;
+  const s = { id: uid(), src, x: 37 + (entry.stickers.length % 3) * 5, y: 20 + (entry.stickers.length % 3) * 5, w, rot: opts.rot ?? [-3, 2, -1, 3][entry.stickers.length % 4], frame: opts.frame || 'plain', z: 3 + entry.stickers.length };
   entry.stickers.push(s);
   const el = stickerEl(s, entry); canvas.append(el); selectSticker(el); save(true); closePops();
 }
@@ -1883,9 +1902,35 @@ cq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(
 // Picture search uses Pixabay (free key from pixabay.com/api/docs). Paste the key here.
 const PIXABAY_KEY = '57900009-5e974e03b01c87abbdaeba031';
 const gq = $('#gq'), picHits = $('#picHits'), picMsg = $('#picMsg');
+// Pictures can come from Pixabay or Openverse (free images from Flickr, Wikimedia and more; no key needed).
+const PIC_SOURCES = { pixabay: '<a href="https://pixabay.com/" target="_blank" rel="noopener">Pixabay</a>', openverse: '<a href="https://openverse.org/" target="_blank" rel="noopener">Openverse</a>. Hover over a picture to see who made it.' };
+const picSource = () => PIC_SOURCES[S.picSource] ? S.picSource : 'pixabay';
+function drawPicSource() { $$('#picSrc button').forEach(b => { const on = b.dataset.src === picSource(); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
+$$('#picSrc button').forEach(b => b.addEventListener('click', () => { S.picSource = b.dataset.src; save(); drawPicSource(); if (gq.value.trim()) findPictures(); }));
+drawPicSource();
+function showPicCredit() { $('#picCredit').innerHTML = 'Pictures from ' + PIC_SOURCES[picSource()]; $('#picCredit').hidden = false; }
+async function findOpenverse(q) {
+  picMsg.textContent = 'Searching Openverse…';
+  let hits = null;
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch('https://api.openverse.org/v1/images/?page_size=24&mature=false&q=' + encodeURIComponent(q.slice(0, 100)), { signal: ctl.signal });
+    if (r.ok) hits = (await r.json()).results || [];
+  } catch (e) {} finally { clearTimeout(t); }
+  if (!hits) { picMsg.textContent = 'Openverse isn’t answering right now. Try Pixabay, or paste or upload a picture below.'; return; }
+  if (!hits.length) { picMsg.textContent = `No pictures found for “${q}”. Try fewer or different words.`; return; }
+  picMsg.textContent = 'Pick a picture to add it to this page.';
+  showPicCredit();
+  hits.forEach(p => {
+    const who = [p.title, p.creator ? 'by ' + p.creator : '', p.license ? `(${String(p.license).toUpperCase()})` : ''].filter(Boolean).join(' ');
+    picHits.append(h('button', { type: 'button', title: who, onmousedown: e => e.preventDefault(), onclick: () => addRemotePicture(p.url, 'openverse') },
+      h('img', { src: p.thumbnail || p.url, alt: p.title || 'Picture', loading: 'lazy', onerror: e => e.target.closest('button').remove() })));
+  });
+}
 async function findPictures() {
   const q = gq.value.trim(); if (!q) return;
   picHits.innerHTML = '';
+  if (picSource() === 'openverse') return findOpenverse(q);
   if (!PIXABAY_KEY) { picMsg.textContent = 'Picture search needs a Pixabay key. You can still paste or upload a picture below.'; return; }
   picMsg.textContent = 'Searching…';
   let hits = null;
@@ -1897,21 +1942,50 @@ async function findPictures() {
   if (!hits) { picMsg.textContent = 'Picture search isn’t answering right now. You can still paste or upload a picture below.'; return; }
   if (!hits.length) { picMsg.textContent = `No pictures found for “${q}”. Try fewer or different words.`; return; }
   picMsg.textContent = 'Pick a picture to add it to this page.';
-  $('#picCredit').hidden = false;
-  hits.forEach(p => picHits.append(h('button', { type: 'button', title: p.tags, onmousedown: e => e.preventDefault(), onclick: () => addPixabay(p) },
+  showPicCredit();
+  hits.forEach(p => picHits.append(h('button', { type: 'button', title: p.tags, onmousedown: e => e.preventDefault(), onclick: () => addRemotePicture(p.webformatURL, 'pixabay') },
     h('img', { src: p.previewURL, alt: p.tags || 'Picture', loading: 'lazy' }))));
 }
-// Save a copy of the picture in the journal, so it keeps showing after Pixabay's link expires.
-async function addPixabay(p) {
+// Save a copy of the picture in the journal, so it keeps showing after the site's link expires.
+async function addRemotePicture(url, name) {
   picMsg.textContent = 'Adding…';
   try {
-    const r = await fetch(p.webformatURL);
+    const r = await fetch(url);
     if (!r.ok) throw 0;
     const blob = await r.blob();
-    await addImage(new File([blob], 'pixabay.jpg', { type: blob.type || 'image/jpeg' }));
-  } catch (e) { addImageUrl(p.webformatURL); }
+    if (!blob.type.startsWith('image/')) throw 0;
+    await addImage(new File([blob], name + '.jpg', { type: blob.type }));
+  } catch (e) { addImageUrl(url); }
 }
 $('#gqBtn').addEventListener('click', findPictures);
+// Stickers come from GIPHY (free key from developers.giphy.com). They keep their see-through background and any animation.
+const GIPHY_KEY = '';
+const sq = $('#sq'), stkHits = $('#stkHits'), stkMsg = $('#stkMsg');
+let stkShown = '';
+async function findStickers(trending) {
+  const q = sq.value.trim(); if (!q && !trending) return;
+  stkHits.innerHTML = ''; stkShown = trending ? '*' : q;
+  if (!GIPHY_KEY) { stkMsg.textContent = 'Sticker search needs a free GIPHY key. Once it’s added, stickers show up here.'; return; }
+  stkMsg.textContent = trending ? 'Loading popular stickers…' : 'Searching…';
+  let hits = null;
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch('https://api.giphy.com/v1/stickers/' + (trending ? 'trending?' : 'search?q=' + encodeURIComponent(q.slice(0, 50)) + '&') + 'limit=30&rating=pg-13&api_key=' + encodeURIComponent(GIPHY_KEY), { signal: ctl.signal });
+    if (r.ok) hits = (await r.json()).data || [];
+  } catch (e) {} finally { clearTimeout(t); }
+  if (!hits) { stkMsg.textContent = 'Sticker search isn’t answering right now. Try again in a moment.'; return; }
+  if (!hits.length) { stkMsg.textContent = `No stickers found for “${q}”. Try a simpler word.`; return; }
+  stkMsg.textContent = trending ? 'Popular right now. Search for something, or pick one to add it.' : 'Pick a sticker to add it to this page.';
+  hits.forEach(g => {
+    const im = g.images || {}; const add = (im.fixed_width || im.original || {}).url; const prev = (im.fixed_width_small || im.fixed_width || {}).url;
+    if (!add) return;
+    stkHits.append(h('button', { type: 'button', title: g.title || 'Sticker', onmousedown: e => e.preventDefault(), onclick: () => addImageUrl(add, { frame: 'none', w: 20, rot: 0 }) },
+      h('img', { src: prev || add, alt: g.title || 'Sticker', loading: 'lazy' })));
+  });
+}
+$('#sqBtn').addEventListener('click', () => findStickers());
+sq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findStickers(); } });
+$('#stkBtn').addEventListener('click', e => { openPop($('#sPop'), e.currentTarget); if (!$('#sPop').hidden && !stkShown) findStickers(true); });
 gq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findPictures(); } });
 // Start each search from the book picked at the top of the page, unless the reader typed their own.
 function pageBook() { const e = currentEntry(); return e && e.bookId ? S.books.find(b => b.id === e.bookId) : null; }
