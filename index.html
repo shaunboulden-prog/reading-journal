@@ -433,6 +433,8 @@ table.log td.t small { color: var(--ink-soft); }
 .cover-hits:empty { display: none; }
 .cover-hits.pic-hits img { aspect-ratio: 1; }
 .pic-hits { max-height: 300px; overflow-y: auto; }
+#coverHits { max-height: 320px; overflow-y: auto; }
+.more-btn { justify-self: center; width: 100%; }
 .credit { margin: 0; font-size: 12px; color: var(--desk-muted); }
 .credit a { color: inherit; }
 .cover-hits button { border: 1px solid var(--chrome-line); background: var(--chrome); border-radius: 6px; padding: 4px; display: grid; gap: 4px; font-size: 11px; color: var(--desk-ink); text-align: left; }
@@ -1514,10 +1516,10 @@ function pickGenre(raw) {
 // Google Books needs an API key from Google Cloud (Books API enabled). Paste it here once the site is hosted on its own domain.
 const GOOGLE_BOOKS_KEY = 'AIzaSyC-Lx4Dpuq5hMqG9nrpO9Ouf7GrYk73p3k';
 const httpsUrl = u => u ? String(u).replace(/^http:/, 'https:').replace('&edge=curl', '') : '';
-async function googleBooks(q, max = 6) {
+async function googleBooks(q, max = 6, start = 0) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
   try {
-    const url = 'https://www.googleapis.com/books/v1/volumes?printType=books&country=US&fields=items(volumeInfo(title,authors,pageCount,categories,publishedDate,imageLinks))&maxResults=' + max + '&q=' + encodeURIComponent(q) + (GOOGLE_BOOKS_KEY ? '&key=' + encodeURIComponent(GOOGLE_BOOKS_KEY) : '');
+    const url = 'https://www.googleapis.com/books/v1/volumes?printType=books&country=US&fields=items(volumeInfo(title,authors,pageCount,categories,publishedDate,imageLinks))&maxResults=' + max + (start ? '&startIndex=' + start : '') + '&q=' + encodeURIComponent(q) + (GOOGLE_BOOKS_KEY ? '&key=' + encodeURIComponent(GOOGLE_BOOKS_KEY) : '');
     const r = await fetch(url, { signal: ctl.signal, referrerPolicy: 'no-referrer-when-downgrade' }); // full page address, so a key restricted to this site's path is accepted
     if (!r.ok) return null;
     const j = await r.json();
@@ -1832,21 +1834,39 @@ function addImageUrl(src) {
   const el = stickerEl(s, entry); canvas.append(el); selectSticker(el); save(true); closePops();
 }
 const cq = $('#cq'), coverHits = $('#coverHits'), coverMsg = $('#coverMsg');
-async function findCovers() {
-  const q = cq.value.trim(); if (!q) return;
-  coverHits.innerHTML = ''; coverMsg.textContent = 'Searching Google Books…';
-  const hits = await googleBooks(q, 12);
-  if (!hits) {
-    coverMsg.textContent = 'Google Books can’t be reached right now. Try the Pictures button instead.';
-    return;
-  }
-  const withCovers = hits.filter(b => b.cover);
-  if (!withCovers.length) { coverMsg.textContent = `No covers found for “${q}”.`; return; }
-  coverMsg.textContent = 'Pick a cover to add it to this page.';
-  withCovers.forEach(b => coverHits.append(h('button', { type: 'button', title: b.title, onmousedown: e => e.preventDefault(), onclick: () => addImageUrl(b.cover) },
-    h('img', { src: b.cover, alt: b.title }), h('span', {}, b.title))));
+// Open Library has covers for many editions Google Books lacks; it adds to each page of results.
+async function openLibraryCovers(q, page) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 10000);
+  try {
+    const r = await fetch('https://openlibrary.org/search.json?limit=20&page=' + page + '&fields=title,cover_i&q=' + encodeURIComponent(q), { signal: ctl.signal });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return (j.docs || []).filter(d => d.cover_i).map(d => ({ title: d.title, cover: `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` }));
+  } catch (e) { return null; } finally { clearTimeout(t); }
 }
-$('#cqBtn').addEventListener('click', findCovers);
+const COVER_PAGE = 20;
+const coverMore = h('button', { type: 'button', class: 'btn ghost more-btn', hidden: true, onclick: () => findCovers(true) }, 'Find more');
+coverHits.after(coverMore);
+let coverSearch = null;
+async function findCovers(more) {
+  const q = more && coverSearch ? coverSearch.q : cq.value.trim(); if (!q) return;
+  if (!more || !coverSearch) { coverSearch = { q, page: 0, seen: new Set() }; coverHits.innerHTML = ''; }
+  const run = coverSearch, page = run.page;
+  coverMore.hidden = true;
+  coverMsg.textContent = page ? 'Looking for more covers…' : 'Searching for covers…';
+  const [g, ol] = await Promise.all([googleBooks(q, COVER_PAGE, page * COVER_PAGE), openLibraryCovers(q, page + 1)]);
+  if (run !== coverSearch) return; // a newer search started while this one was loading
+  if (!g && !ol && !page) { coverMsg.textContent = 'Covers can’t be reached right now. Try the Pictures button instead.'; return; }
+  const fresh = [...(g || []), ...(ol || [])].filter(b => b.cover && !run.seen.has(b.cover));
+  fresh.forEach(b => { run.seen.add(b.cover); coverHits.append(h('button', { type: 'button', title: b.title, onmousedown: e => e.preventDefault(), onclick: () => addImageUrl(b.cover) },
+    h('img', { src: b.cover, alt: b.title, loading: 'lazy', onerror: e => e.target.closest('button').remove() }), h('span', {}, b.title))); });
+  run.page++;
+  const anyLeft = (g && g.length >= COVER_PAGE) || (ol && ol.length);
+  if (!run.seen.size) { coverMsg.textContent = `No covers found for “${q}”.`; return; }
+  coverMsg.textContent = fresh.length || anyLeft ? 'Pick a cover to add it to this page.' : 'That’s every cover we could find. Try different words for more.';
+  coverMore.hidden = !anyLeft;
+}
+$('#cqBtn').addEventListener('click', () => findCovers());
 $('#textBoxBtn').addEventListener('click', addTextBox);
 $$('[data-layer]').forEach(b => b.addEventListener('click', () => layer(b.dataset.layer)));
 cq.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findCovers(); } });
