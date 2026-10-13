@@ -340,14 +340,31 @@ table.log td.t small { color: var(--ink-soft); }
 .dnf-stats { display: grid; gap: 14px; margin-top: 10px; padding-top: 14px; border-top: 1px dashed var(--rule); }
 .dnf-head { margin: 0; font-family: var(--display); font-weight: 400; font-size: 22px; }
 .dnf-stats .hbar { grid-template-columns: minmax(0, 11em) 1fr 2.2em; }
-.yard { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px 12px; align-items: end; padding: 4px 0 10px; border-bottom: 3px solid #8a9a6b; }
-.stone { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 150px; padding: 18px 10px 12px; border: 1px solid #a9a59b; border-bottom-width: 3px; border-radius: 60px 60px 4px 4px; background: linear-gradient(160deg, #e4e1da, #c9c5bb); color: #3a3833; text-align: center; box-shadow: inset 0 -6px 10px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.12); transition: transform .15s; }
-.stone:hover { transform: translateY(-2px); }
-.stone .rip { font-family: var(--display); font-size: 12px; letter-spacing: .2em; color: #6b675e; }
-.stone b { font-family: var(--display); font-weight: 600; font-size: 14px; line-height: 1.2; overflow-wrap: anywhere; }
-.stone small { font-size: 12px; color: #5f5b52; }
-.stone-meta { font-size: 11px; color: #6b675e; }
-.epitaph { font-family: var(--hand); font-size: 17px; line-height: 1.1; color: #3a3833; margin-top: 2px; }
+.yard { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 18px 14px; align-items: start; padding: 4px 0 12px; border-bottom: 3px solid #8a9a6b; }
+.grave { display: grid; justify-items: center; gap: 2px; text-align: center; min-width: 0; }
+.stone { position: relative; width: 100%; max-width: 170px; aspect-ratio: 2 / 3; border: 0; padding: 0; background: none; container-type: inline-size; color: #34322e; transition: transform .15s; }
+.stone:hover { transform: translateY(-3px); }
+.stone:focus-visible { outline: 2px solid var(--accent, #2f6f68); outline-offset: 4px; border-radius: 40% 40% 4px 4px; }
+.stone-art, .stone-art svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stone > span:not(.stone-art) { position: absolute; left: 50%; transform: translateX(-50%); }
+/* the cover sits where the picture has its round carved medallion */
+.medallion { top: 8%; width: 30%; aspect-ratio: 2 / 3; border-radius: 50% 50% 8% 8% / 30% 30% 4% 4%; overflow: hidden; background: radial-gradient(#9d9a94, #7e7b75); border: 3px double #85827c; box-shadow: inset 0 2px 5px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.55); }
+.medallion img { width: 100%; height: 100%; object-fit: cover; display: block; filter: sepia(.25) saturate(.85) contrast(.95); }
+.medallion:empty::after { content: "✝"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 18cqw; color: #5e5b55; text-shadow: 0 1px 0 rgba(255,255,255,.4); }
+.stone .rip { top: 40.5%; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 22cqw; letter-spacing: .04em; line-height: 1; color: #3b3935; text-shadow: 0 1px 0 rgba(255,255,255,.55), 0 -1px 1px rgba(0,0,0,.35); }
+.flourish { top: 55.5%; font-size: 7cqw; color: #5d5a54; letter-spacing: .1em; white-space: nowrap; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+.plaque { top: 61%; width: 52%; padding: 1.5cqw 2cqw; background: linear-gradient(#c7c4be, #a9a6a0); border: 1px solid #77746e; box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(0,0,0,.25); }
+.plaque b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-family: Georgia, serif; font-weight: 700; font-size: 6.4cqw; line-height: 1.15; text-transform: uppercase; letter-spacing: .04em; color: #3b3935; text-shadow: 0 1px 0 rgba(255,255,255,.5); overflow-wrap: anywhere; }
+.stone-author { top: 76.5%; width: 46%; font-size: 5.6cqw; font-style: italic; color: #46433e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stone-date { top: 90.6%; width: 80%; font-family: Georgia, serif; font-size: 5.4cqw; letter-spacing: .06em; color: #3e3c38; white-space: nowrap; text-shadow: 0 1px 0 rgba(255,255,255,.45); }
+.stone .flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flicker 1.6s ease-in-out infinite alternate; }
+.stone .candle:last-child .flame { animation-delay: -.7s; }
+.stone .halo { animation: glowPulse 1.6s ease-in-out infinite alternate; }
+@keyframes flicker { 0% { transform: scale(1, 1) rotate(-2deg); } 50% { transform: scale(.92, 1.08) rotate(2deg); } 100% { transform: scale(1.04, .94) rotate(-1deg); } }
+@keyframes glowPulse { from { opacity: .7; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .stone .flame, .stone .halo { animation: none; } }
+.stone-meta { font-size: 11px; color: #6b675e; margin-top: 4px; }
+.epitaph { font-family: var(--hand); font-size: 17px; line-height: 1.1; color: #3a3833; }
 /* journal entry */
 .entry .page-body { padding: 18px 22px 46px 40px; gap: 6px; overflow: hidden; }
 .entry-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12px; color: var(--ink-soft); }
@@ -1119,17 +1136,51 @@ function graveyardStats() {
     h('section', { class: 'viz' }, h('h3', {}, 'How far I got'), hbars(far, list.length)),
     h('section', { class: 'viz' }, h('h3', {}, 'By genre'), hbars(tally(list, b => b.genre, 'No genre'), list.length)));
 }
+// The headstone drawing, after Shaun's picture: arched stone with shoulders, moss, cracks, a plinth and two candles.
+// Shared gradients and texture live in one hidden <svg> so each stone only draws shapes.
+document.body.append(h('div', { 'aria-hidden': 'true', style: { position: 'absolute', width: 0, height: 0, overflow: 'hidden' }, html: `<svg width="0" height="0"><defs>
+  <linearGradient id="tombFace" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9d7d2"/><stop offset=".55" stop-color="#b9b6b0"/><stop offset="1" stop-color="#97948e"/></linearGradient>
+  <linearGradient id="tombBase" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b3b0aa"/><stop offset="1" stop-color="#7f7c76"/></linearGradient>
+  <linearGradient id="wax" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d9cfb8"/><stop offset=".5" stop-color="#f4ecd8"/><stop offset="1" stop-color="#cfc3a8"/></linearGradient>
+  <radialGradient id="glow"><stop offset="0" stop-color="#ffd27a" stop-opacity=".75"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>
+  <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 .2  0 0 0 0 .2  0 0 0 0 .2  0 0 0 .55 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="2.2"/></filter>
+</defs></svg>` }));
+const TOMB_PATH = 'M24 268 L28 96 Q28 80 42 76 L54 72 L54 52 Q54 14 100 14 Q146 14 146 52 L146 72 L158 76 Q172 80 172 96 L176 268 Z';
+const candle = x => `<g class="candle"><ellipse class="halo" cx="${x}" cy="222" rx="22" ry="22" fill="url(#glow)"/>
+  <path d="M${x - 9} 290 L${x - 9} 238 Q${x - 9} 232 ${x - 4} 233 Q${x - 2} 240 ${x} 233 Q${x + 4} 231 ${x + 6} 236 Q${x + 9} 233 ${x + 9} 240 L${x + 9} 290 Z" fill="url(#wax)" stroke="#a89c80" stroke-width=".6"/>
+  <path d="M${x - 9} 250 q2 10 0 16 M${x + 8} 246 q-2 8 0 13" stroke="#e9dfc6" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+  <line x1="${x}" y1="233" x2="${x}" y2="228" stroke="#3a3530" stroke-width="1"/>
+  <path class="flame" d="M${x} 214 Q${x + 4.5} 222 ${x} 229 Q${x - 4.5} 222 ${x} 214 Z" fill="#ffe08a" stroke="#ffb347" stroke-width=".8"/></g>`;
+const TOMB_SVG = `<svg viewBox="0 0 200 300" preserveAspectRatio="none">
+  <ellipse cx="100" cy="294" rx="96" ry="6" fill="rgba(0,0,0,.18)" filter="url(#soft)"/>
+  <path d="${TOMB_PATH}" fill="url(#tombFace)" stroke="#7d7a74" stroke-width="1.2"/>
+  <path d="${TOMB_PATH}" filter="url(#grain)" opacity=".5"/>
+  <path d="M38 262 L40 102 Q40 90 50 87 L64 83 L64 56 Q64 26 100 26 Q136 26 136 56 L136 83 L150 87 Q160 90 160 102 L162 262" fill="none" stroke="#8d8a84" stroke-width="1.4" opacity=".75"/>
+  <path d="M39 263 L41 103 Q41 91 51 88 L65 84 L65 57 Q65 27 100 27" fill="none" stroke="#efede8" stroke-width=".8" opacity=".7"/>
+  <path d="M58 40 l6 9 -3 7 5 6 M150 120 l-6 10 2 9 -5 7 M34 190 l7 6 -2 8" stroke="#6f6c66" stroke-width=".9" fill="none" opacity=".7"/>
+  <g fill="#6d7f3c" opacity=".55" filter="url(#soft)"><ellipse cx="30" cy="150" rx="5" ry="14"/><ellipse cx="170" cy="108" rx="4" ry="10"/><ellipse cx="62" cy="268" rx="12" ry="4"/><ellipse cx="146" cy="40" rx="6" ry="4"/><ellipse cx="172" cy="230" rx="4" ry="9"/></g>
+  <rect x="10" y="266" width="180" height="26" rx="2" fill="url(#tombBase)" stroke="#6f6c66" stroke-width="1"/>
+  <rect x="10" y="266" width="180" height="26" rx="2" filter="url(#grain)" opacity=".45"/>
+  <line x1="12" y1="268" x2="188" y2="268" stroke="#d4d1cb" stroke-width="1"/>
+  ${candle(36)}${candle(164)}
+</svg>`;
 function renderGraveyard() {
   const leaf = h('div', { class: 'leaf paper stats' });
   const yard = h('div', { class: 'yard' });
   [...S.dnf].sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(t => {
     const where = t.stoppedAt ? (t.pages ? `Stopped on p. ${t.stoppedAt} of ${t.pages}` : `Stopped on p. ${t.stoppedAt}`) : '';
-    yard.append(h('button', { type: 'button', class: 'stone', onclick: () => openDnfForm(t), 'aria-label': `${t.title}. Edit` },
-      h('span', { class: 'rip', 'aria-hidden': 'true' }, 'R.I.P.'),
-      h('b', {}, t.title),
-      t.author ? h('small', {}, t.author) : null,
+    const tip = [t.title, t.author && 'by ' + t.author, where, t.date && fmtFullDate(t.date), t.reason && `“${t.reason}”`].filter(Boolean).join('\n');
+    yard.append(h('div', { class: 'grave' },
+      h('button', { type: 'button', class: 'stone', title: tip, onclick: () => openDnfForm(t), 'aria-label': `${t.title}${t.author ? ' by ' + t.author : ''}. Edit` },
+        h('span', { class: 'stone-art', 'aria-hidden': 'true', html: TOMB_SVG }),
+        h('span', { class: 'medallion' }, t.cover ? h('img', { src: t.cover, alt: '', onerror: e => e.target.remove() }) : null),
+        h('span', { class: 'rip', 'aria-hidden': 'true' }, 'RIP'),
+        h('span', { class: 'flourish', 'aria-hidden': 'true' }, '❧ ❦ ☙'),
+        h('span', { class: 'plaque' }, h('b', {}, t.title)),
+        t.author ? h('span', { class: 'stone-author' }, t.author) : null,
+        t.date ? h('span', { class: 'stone-date' }, fmtFullDate(t.date)) : null),
       where ? h('span', { class: 'stone-meta' }, where) : null,
-      t.date ? h('span', { class: 'stone-meta' }, fmtFullDate(t.date)) : null,
       t.reason ? h('span', { class: 'epitaph' }, `“${t.reason}”`) : null));
   });
   leaf.append(h('div', { class: 'page-body' },
